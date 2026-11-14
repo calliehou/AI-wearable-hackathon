@@ -1,58 +1,109 @@
-# CLAUDE.md — AI Wearable Hackathon (VexoHacks @ YC)
+# CLAUDE.md — Mendly
+
+> **Mendly turns the things you promise people into a living garden of your relationships.** A Vexo Band listens to your day. Mendly picks out who you talked to and what you committed to: money to pay back, a bill to split, a gift to buy, a plan to make. Each person becomes a plant that grows as you spend time together and blooms after warm moments. People you met once rest at the edge of the garden. *Friendship is the mend.*
 
 Claude Code reads this file at the start of every session. Keep it short and current.
-Update the **Project** block as soon as the idea is locked (T+0:30).
+Built at VexoHacks (Y Combinator, San Francisco) in 5 hours by **Callie** and **Mapa**. Plan and checklists: `docs/PLAN.md`.
 
-## Project
-- **One-liner:** [TBD at T+0:30 — e.g. "A voice companion on your wrist that ___ so that ___"]
-- **User:** [TBD]
-- **Wow moment (the 10 seconds judges remember):** [TBD]
-- **Demo script:** see `docs/DEMO.md`
-- **Signals used:** always-on voice (Vexo Band) + [vision / environment / location / HRV — pick ≤ 1 extra]
+## Build order
+1. **People + Promises** (P0): who you talked to, the last conversation, and open commitments. Money ("transfers") comes first.
+2. **Garden** (P0): the home dashboard. People drawn as growing plants arranged in closeness rings, with auto tags (family, friend, classmate, work).
+3. **Real data** (P0): Vexo transcript wired in through adapters.
+4. **Rhythm + Nudges** (P1): a frequency strip showing how often you talk, a calendar of promises, and "it's been a while" nudges.
+5. **Gift ideas** (P2), plus the **Memory map** of places you've been together (P2, uses phone location or a mock).
 
-## Team
-- **Callie** — design engineering + prototype. Owns `app/`, `lib/`, integration, deploy.
-- **Mapa** — business / strategy. Owns `docs/`, `prompts/`, pitch, README narrative, user tests.
-- Ownership rule: don't edit the other person's folders without saying so in chat.
+## Ownership
+| | Callie | Mapa |
+|---|---|---|
+| Owns | `app/`, `app/api/`, `lib/pipeline/`, `lib/garden/`, `data/mock/`, deploy | `lib/adapters/`, `data/raw/`, `docs/vendor/`, pitch, README story |
+| Builds | People + Promises, the Garden, Rhythm | Vexo (and other wearable) data access, then gifts and the pitch |
 
-## Stack (change only if the Vexo SDK forces it)
-- Next.js (App Router) + TypeScript + Tailwind, deployed on Vercel
-- LLM: Claude API via server routes only (`app/api/*`) — never call model APIs from the browser
-- Vexo Band SDK: [fill in after kickoff — paste docs into `docs/vendor/vexo.md`]
-- Optional: browser Geolocation (geofence), getUserMedia (camera), weather/AQI APIs
+**The handoff point is `lib/types.ts`.** Adapters output these types, and the pipeline only reads these types. Neither side changes them without telling the other.
+
+## Data contract — `lib/types.ts`
+```ts
+export type Source = 'vexo' | 'oura' | 'phone' | 'mock';
+
+export interface Segment {            // one chunk of transcript
+  id: string; start: string; end: string;   // ISO timestamps
+  text: string;
+  speaker: string | null;             // SDK label if available, else null
+  source: Source;
+}
+export interface HeartSample { t: string; bpm: number; source: Source; }
+export interface PlaceSample { t: string; lat: number; lng: number; label: string | null; source: Source; } // P2
+
+export type Tag  = 'family' | 'friend' | 'partner' | 'classmate' | 'work' | 'other';
+export type Tier = 'inner' | 'close' | 'around' | 'met_once';   // garden ring
+
+export interface Person {
+  id: string; name: string; aliases: string[];
+  tags: Tag[];                        // auto-inferred, user can edit
+  relationship: string | null;        // "manager", "roommate"…
+  interests: string[];                // things they like (for gift ideas)
+  conversationIds: string[];          // newest first
+  firstSeen: string; lastSeen: string;
+  warmth: number;                     // 0–1, share of warm/positive moments
+  tier: Tier;                         // computed in lib/garden/score.ts
+}
+
+export type PromiseKind = 'money' | 'gift' | 'plan' | 'task' | 'other';
+export interface Commitment {
+  id: string; personId: string; conversationId: string;
+  kind: PromiseKind;
+  text: string;                       // "Pay Kelly back for dinner"
+  amount: number | null; currency: string | null;
+  direction: 'you_owe' | 'owes_you' | 'split' | null;  // money only
+  due: string | null;                 // ISO date if mentioned
+  status: 'open' | 'done';
+}
+
+export interface Conversation {
+  id: string; start: string; end: string;
+  personIds: string[];
+  title: string; summary: string;     // written to the user ("You talked about…")
+  keyPoints: string[];
+  mood: 'warm' | 'neutral' | 'tense';
+  place: string | null;
+  segmentIds: string[];
+}
+```
+
+## Pipeline
+`Segment[]` → **group** (a gap of more than 5 min starts a new conversation) → **extract** with Claude using `prompts/people-extract.md` (people, summary, commitments, interests, mood; JSON only) → **merge** people by name or alias → **score** (`lib/garden/score.ts`) → save to `data/store.json`. There is no database.
+
+**Garden score:** `growth = log2(1 + conversations in last 30 days) + 2·warmth`. Tier: `inner` ≥ 4, `close` ≥ 2.5, `around` ≥ 1, otherwise `met_once` (also anyone seen only once). Plant size = growth, blooms = warm conversations, and the ring is set by the tier.
+
+## Stack
+Next.js (App Router) + TypeScript + Tailwind on Vercel. The Garden is SVG + CSS animation. Use a shader only for the person-page hero, if there's time. The Claude API is called **only** from `app/api/*`. `ADAPTER_MODE=mock|real` switches between adapters. Mock data: `data/mock/day.json`.
 
 ## Rules for Claude
-1. **`main` must always run and demo.** Work on a branch; merge only when `npm run build` passes.
-2. **Never read, print, or commit `.env*` files or API keys.** Use `process.env.X`; add new vars to `.env.example` with an empty value.
-3. Small commits with clear messages (`feat:`, `fix:`, `ui:`, `docs:`). Commit after every working step.
-4. Before any feature that touches > 2 files: propose a plan first (plan mode), then build.
-5. Prefer faking over blocking: if an SDK/API is not ready, build a mock behind the same interface in `lib/adapters/` and keep going. Mark it `// MOCK` and list it in `docs/PROGRESS.md`.
-6. No new dependencies without saying why in one line.
-7. Read vendor docs in `docs/vendor/` instead of guessing APIs. If the docs don't cover it, say so.
-8. UI: follow `docs/DESIGN.md`. Touch targets ≥ 44px, text contrast ≥ 4.5:1, respect `prefers-reduced-motion`.
+1. `main` must always build and demo. Work on a branch; merge only after `npm run build` passes.
+2. Never read, print or commit `.env*` or keys. New variables go into `.env.example` with empty values.
+3. Small commits (`feat:` `fix:` `ui:` `data:` `docs:`) after each working step.
+4. If a change touches more than 2 files, plan first, then build.
+5. If you're blocked on an SDK or API, build a mock behind the same interface, mark it `// MOCK`, list it in `docs/PLAN.md` under "Mocks in use", and keep going.
+6. Read `docs/vendor/` before calling any device API. Never invent SDK calls.
+7. **The tone is warm, never guilt-inducing.** A neglected relationship is "resting", not "dying". Nudges are invitations: "It's been 3 weeks since you saw Sam. Coffee?" No red warnings, and no scores that rank people's worth.
+8. **Money is suggested, never assumed.** Every extracted amount needs a one-tap "confirm" before it counts.
+9. **Privacy:** everything stays private to the user, and other people's words are summarized, never quoted.
+10. Accessibility: touch targets ≥ 44px, contrast ≥ 4.5:1, respect `prefers-reduced-motion`.
 
-## Folder map
-```
-app/                 Next.js routes + UI            (Callie)
-app/api/             server routes: llm, vexo, env  (Callie)
-lib/adapters/        vexo.ts, llm.ts, location.ts, env.ts — real + mock impls
-prompts/             companion persona + system prompts (Mapa)
-docs/PLAN.md         timeline, roles, checkpoints
-docs/PROGRESS.md     live status board — update every hour
-docs/DEMO.md         2-minute demo script + backup plan
-docs/DESIGN.md       visual direction + tokens
-docs/vendor/         pasted SDK / API docs
-.claude/agents/      subagents (see below)
-```
+## Design
+Warm, soft and organic. Use the **Mineral Bloom** direction (seed `0KtCFUxwC`): warm stone, pearl, a periwinkle field, serif display (Instrument Serif) over Inter. Plants or stones grow and bloom, and the colors and motion follow that direction.
 
-## Subagents (in `.claude/agents/`)
-- `sdk-scout` — reads vendor docs, returns the exact calls we need. Read-only.
-- `ui-builder` — builds screens/components to `docs/DESIGN.md`.
-- `integrator` — wires Vexo → LLM → haptic/UI loop; owns adapters + API routes.
-- `demo-qa` — runs the build, walks the demo script, reports what breaks. Read-only + bash.
-- `readme-writer` — drafts README from code + docs at the end.
-Use them for independent work; keep the main session for decisions and merging.
+## Folders
+```
+app/                  /  (Garden)   /people/[id]   /promises   /rhythm
+app/api/              ingest · extract · people · promises     (server only)
+lib/types.ts          shared data contract
+lib/adapters/         vexo.ts · phone.ts (+ .mock.ts)          Mapa
+lib/pipeline/         group.ts · extract.ts · merge.ts         Callie
+lib/garden/           score.ts · layout.ts                     Callie
+prompts/              people-extract.md
+data/mock/day.json    a fake week for development + demo
+docs/                 PLAN.md · vendor/
+```
 
 ## Commands
-- `npm run dev` · `npm run build` · `npm run lint`
-- Deploy: push to `main` → Vercel auto-deploys
+`npm run dev` · `npm run build` · `npm run lint` · push to `main` → Vercel deploys
