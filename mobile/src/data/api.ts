@@ -5,6 +5,10 @@ import { Platform } from "react-native";
 import type { Circle, Kind, Person, PromiseType, Todo } from "./types";
 
 export function serverUrl(): string | null {
+  // To use another Mac's band data (e.g. Callie running Expo on her laptop while the band
+  // is on Mapa's Mac): start Expo with EXPO_PUBLIC_PERI_SERVER=http://<that Mac's IP>:3000
+  const override = process.env.EXPO_PUBLIC_PERI_SERVER;
+  if (override) return override.replace(/\/$/, "");
   const host = Constants.expoConfig?.hostUri?.split(":")[0];
   if (host) return `http://${host}:3000`;
   // Web preview on the Mac itself.
