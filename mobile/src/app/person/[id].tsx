@@ -10,6 +10,7 @@ import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, Pill, T } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
 import { RenameSheet } from "../../components/RenameSheet";
+import { CirclePicker } from "../../components/CirclePicker";
 import { confirmDelete } from "../../components/confirmDelete";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
@@ -31,6 +32,7 @@ export default function PersonScreen() {
   const [note, setNote] = useState("");
   const [picking, setPicking] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [circling, setCircling] = useState(false);
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
   const name = p?.name;
@@ -93,8 +95,8 @@ export default function PersonScreen() {
             <Icon name="edit" size={18} color={colors.muted} />
           </Pressable>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 }}>
-            {p.circles.map((c) => <Pill key={c} label={c} bg={s.circleColor(c) ?? colors.card} onPress={() => router.push("/circles")} />)}
-            {!p.circles.length && <Pill label="Add to a circle" dashed onPress={() => router.push("/circles")} />}
+            {p.circles.map((c) => <Pill key={c} label={c} bg={s.circleColor(c) ?? colors.card} onPress={() => setCircling(true)} />)}
+            <Pill label={p.circles.length ? "Circles" : "Add to a circle"} dashed onPress={() => setCircling(true)} />
             <Pill label={ORBIT[p.ring]} bg={p.ring === 1 ? "#FFF1E8" : colors.card} />
           </View>
         </View>
@@ -197,6 +199,8 @@ export default function PersonScreen() {
           setPicking(false);
           router.back();
         }} />
+
+      <CirclePicker person={p} visible={circling} onClose={() => setCircling(false)} />
 
       <RenameSheet key={`rename-${renaming}`} visible={renaming} name={p.name} onClose={() => setRenaming(false)}
         onSave={async (to) => { const nid = await s.renamePerson(p.name, to); router.replace({ pathname: "/person/[id]", params: { id: nid } }); }} />
