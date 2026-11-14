@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Peri · Welcome</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.oa{animation:spin 40s linear infinite}.oa .p{animation:spin 40s linear infinite reverse}
+.ob{animation:spin 70s linear infinite reverse}.ob .p{animation:spin 70s linear infinite}
+@media (prefers-reduced-motion: reduce){.oa,.ob,.p{animation:none !important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; background: #FFFFFF; overflow: hidden; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #111111">
+
+<div style="position: absolute; top: 90px; left: 0; width: 390px; height: 390px">
+<div class="ob" style="position: absolute; left: 15px; top: 15px; width: 360px; height: 360px; border-radius: 180px; border: 1.5px dashed #E4E4EA; box-sizing: border-box">
+<span class="p" style="position: absolute; left: 304px; top: 240px; width: 44px; height: 44px; border-radius: 22px; background: #CDEBFB; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800">C</span>
+<span class="p" style="position: absolute; left: 20px; top: 70px; width: 40px; height: 40px; border-radius: 20px; background: #E3D9FF; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800">L</span>
+<span class="p" style="position: absolute; left: 90px; top: 318px; width: 12px; height: 12px; border-radius: 6px; background: #D4D4DC"></span>
+</div>
+<div class="oa" style="position: absolute; left: 80px; top: 80px; width: 230px; height: 230px; border-radius: 115px; border: 1.5px solid #EFEFF2; box-sizing: border-box">
+<span class="p" style="position: absolute; left: 160px; top: -14px; width: 52px; height: 52px; border-radius: 26px; background: #FFE3B8; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800">K</span>
+<span class="p" style="position: absolute; left: -16px; top: 140px; width: 50px; height: 50px; border-radius: 25px; background: #CDEBD6; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800">M</span>
+</div>
+<div style="position: absolute; left: 135px; top: 135px; width: 120px; height: 120px; border-radius: 30px; background: #111111; display: flex; align-items: center; justify-content: center; box-shadow: 0 16px 40px rgba(17,17,17,0.22)">
+<svg width="88" height="88" viewBox="0 0 100 100" role="img" aria-label="Peri"><ellipse cx="50" cy="50" rx="38" ry="16" transform="rotate(-28 50 50)" fill="none" stroke="#FFFFFF" stroke-width="5"/><circle cx="50" cy="50" r="13" fill="#FFFFFF"/><circle cx="70.9" cy="27.3" r="7" fill="#F26A3D" stroke="#111111" stroke-width="3"/></svg>
+</div>
+</div>
+
+<div style="position: absolute; top: 510px; left: 24px; right: 24px; text-align: center">
+<div style="font-size: 44px; font-weight: 800; letter-spacing: -2px; line-height: 1">peri</div>
+<div style="font-size: 20px; font-weight: 700; letter-spacing: -0.4px; margin-top: 12px">Keep your people in orbit.</div>
+<div style="font-size: 14px; font-weight: 500; color: #6B6B76; margin-top: 8px; line-height: 1.45">Your band hears the promises you make.<br>Peri helps you keep them.</div>
+</div>
+
+<a href="Band.dc.html" style="position: absolute; left: 20px; right: 20px; bottom: 120px; height: 56px; border-radius: 28px; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="3"/><path d="M8 9V5h8v4M8 15v4h8v-4"/></svg>Connect your Vexo band</a>
+<a href="Main.dc.html" style="position: absolute; left: 20px; right: 20px; bottom: 56px; height: 52px; border-radius: 26px; background: #F3F3F5; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">Import contacts</a>
+<div style="position: absolute; left: 0; right: 0; bottom: 24px; text-align: center; font-size: 12px; font-weight: 600; color: #6B6B76">Audio is never stored</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

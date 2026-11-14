@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mendly · Confirm transfer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; background: #FFFFFF; overflow: hidden; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #111111">
+
+<a href="Detected.dc.html" aria-label="Back" style="position: absolute; top: 52px; left: 16px; width: 44px; height: 44px; border-radius: 22px; background: #F3F3F5; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+<div style="position: absolute; top: 64px; left: 0; right: 0; text-align: center; font-size: 15px; font-weight: 700">Keep a promise</div>
+
+<div style="position: absolute; top: 120px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 0">
+<span style="width: 64px; height: 64px; border-radius: 32px; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800">You</span>
+<span style="width: 64px; height: 2px; background: repeating-linear-gradient(90deg, #111111 0 6px, transparent 6px 12px)"></span>
+<span style="width: 72px; height: 72px; border-radius: 36px; background: #FFE3B8; border: 4px solid #FFFFFF; box-shadow: 0 0 0 2.5px #F26A3D; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800">D</span>
+</div>
+<div style="position: absolute; top: 210px; left: 0; right: 0; text-align: center">
+<div style="font-size: 20px; font-weight: 800">Diego R.</div>
+<div style="font-size: 13px; font-weight: 500; color: #6B6B76; margin-top: 2px">Saved payee · •• 8821</div>
+</div>
+
+<div style="position: absolute; top: 272px; left: 0; right: 0; text-align: center">
+<div style="font-size: 64px; font-weight: 800; letter-spacing: -3px">{{ amountLabel }}</div>
+<div style="display: inline-flex; gap: 8px; margin-top: 4px">
+<button onClick="{{ full }}" aria-pressed="{{ fullOn }}" style="{{ fullStyle }}">Full $120</button>
+<button onClick="{{ half }}" aria-pressed="{{ halfOn }}" style="{{ halfStyle }}">Split · $60</button>
+</div>
+</div>
+
+<div style="position: absolute; top: 420px; left: 16px; right: 16px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 18px; background: #FFF1E8">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/></svg>
+<span style="flex: 1; font-size: 13px; font-weight: 600">You promised this today at 9:41 AM</span>
+</div>
+
+<div style="position: absolute; top: 486px; left: 16px; right: 16px; border: 2px solid #F0F0F3; border-radius: 22px; padding: 2px 16px">
+<div style="display: flex; justify-content: space-between; align-items: center; height: 48px; border-bottom: 2px solid #F0F0F3; font-size: 14px"><span style="font-weight: 600; color: #6B6B76">From</span><span style="font-weight: 700">[Your bank] Checking •• 4417</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; height: 48px; border-bottom: 2px solid #F0F0F3; font-size: 14px"><span style="font-weight: 600; color: #6B6B76">Note</span><span style="font-weight: 700">Concert tickets</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; height: 48px; font-size: 14px"><span style="font-weight: 600; color: #6B6B76">Arrives</span><span style="font-weight: 700">Instantly · $0 fee</span></div>
+</div>
+
+<a href="Sent.dc.html" style="position: absolute; left: 16px; right: 16px; bottom: 74px; height: 58px; border-radius: 29px; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; font-weight: 700">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2M9 9v1M15 9v1M12 9v4h-1M9 16c1.5 1 4.5 1 6 0"/></svg>
+Confirm &amp; send {{ amountLabel }}</a>
+<div style="position: absolute; left: 0; right: 0; bottom: 40px; text-align: center; font-size: 12px; font-weight: 600; color: #6B6B76">Nothing moves until you approve</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const split = !!(this.state && this.state.split);
+const pill = (on) => 'height: 36px; padding: 0 14px; border-radius: 18px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border: 2px solid ' + (on ? '#111111' : '#EFEFF2') + '; background: ' + (on ? '#111111' : '#FFFFFF') + '; color: ' + (on ? '#FFFFFF' : '#111111');
+return {
+amountLabel: split ? '$60' : '$120',
+fullOn: split ? 'false' : 'true',
+halfOn: split ? 'true' : 'false',
+fullStyle: pill(!split),
+halfStyle: pill(split),
+full: () => this.setState({ split: false }),
+half: () => this.setState({ split: true })
+};
+}
+}
+</script>
+</body>
+</html>

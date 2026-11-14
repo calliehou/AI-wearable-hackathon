@@ -1,47 +1,46 @@
-# [Project name]
+# peri
 
-**[One-liner: who it's for + what it does + why it matters]**
+**Peri hears the promises you make and helps you keep them, so the people you care about stay in your orbit.**
 
-[TODO: demo video link] · [TODO: live deploy URL]
-
-![demo](docs/demo.gif)
+[TODO: demo video] · [TODO: live URL]
 
 ## The problem
-[2–3 sentences. Use a real quote from a user interview.]
+We make small promises all day: "I'll pay you back," "I'll send the deck Monday," "Your birthday's Saturday, right?" They're spoken, not typed, so they slip. Friendships drift one forgotten promise at a time.
 
-## What it does
-[The core experience in 3 bullets. Lead with the wow moment.]
+## What Peri does
+- **Hears promises.** A Vexo Band catches commitments in conversation; you can also hold the mic and tell Peri directly.
+- **Sorts them.** Each promise is filed under the right person as money, gift, task or plan.
+- **Shows your orbit.** You sit at the center and your people orbit you. Whoever needs you soonest sits closest, and the badges show open promises.
+- **Helps you keep them.** Due-today cards, gentle nudges when someone drifts, gift ideas from things they've mentioned, and a one-tap transfer for money you owe.
+- **Remembers people.** Each person has a recent-activity log and an "About" card with key facts.
+
+## Why it's called Peri
+From *perigee*, the point where an orbit comes closest. Keeping your promises keeps people close.
 
 ## How it works
-[Embed Mermaid diagram from docs/architecture.md]
+Vexo Band / mic → speech-to-text → Claude extracts promises, the person, the kind and the due date → you confirm → your orbit updates.
+[TODO: architecture diagram]
 
-- **Vexo Band:** [which capabilities we use: always-on voice, haptic tap, heart rate…]
-- **AI:** [what the model decides and when]
-- **Extra signal:** [vision / environment / location]
+## Privacy
+Audio is never stored. Other people's words are summarized, never quoted. Money never moves without your approval.
 
-## Why a wearable (and why Vexo)
-[Why this can't just be a phone app.]
+## Tech
+Next.js · TypeScript · Tailwind · Claude API · Vexo SDK · Vercel
 
-## Tech stack
-Next.js · TypeScript · Tailwind · Claude API · Vexo SDK · Vercel · [others]
-
-## Run it locally
+## Run locally
 ```bash
 git clone https://github.com/calliehou/AI-wearable-hackathon
 cd AI-wearable-hackathon
 npm install
-cp .env.example .env.local   # fill in keys; ADAPTER_MODE=mock runs without hardware
+cp .env.example .env.local   # ADAPTER_MODE=mock runs without the band
 npm run dev
 ```
 
 ## Current limitations
-[Honest list of what's mocked or not finished, taken from docs/PROGRESS.md]
-
-## What's next
-[2–3 bullets]
+- Payments are mocked in this build.
+- [TODO]
 
 ## Team
-- **Callie Hou** — design engineering & prototype
-- **Mapa** — strategy & business
+**Callie Hou** (design engineering & prototype) · **Mapa** (strategy & data)
 
-Built in 6 hours at VexoHacks, Y Combinator, San Francisco · November 2026
+Built at VexoHacks · Y Combinator · San Francisco · November 2026

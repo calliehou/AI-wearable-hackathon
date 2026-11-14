@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mendly · Gift ideas for Kelly</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; background: #FFFFFF; overflow: hidden; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #111111">
+
+<a href="Person.dc.html" aria-label="Back to Kelly" style="position: absolute; top: 52px; left: 16px; width: 44px; height: 44px; border-radius: 22px; background: #F3F3F5; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+
+<div style="position: absolute; top: 108px; left: 20px; right: 20px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 40px; height: 40px; border-radius: 20px; background: #FFD39A; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800">K</span>
+<span style="height: 28px; padding: 0 12px; border-radius: 14px; background: #F9C9C4; display: flex; align-items: center; font-size: 12px; font-weight: 800">Birthday · Saturday</span>
+</div>
+<div style="font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-top: 12px">Gifts Kelly would actually love</div>
+<div style="font-size: 13px; font-weight: 500; color: #6B6B76; margin-top: 6px">From 6 conversations · only you see this</div>
+</div>
+
+<div style="position: absolute; top: 264px; left: 16px; right: 16px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{ ideas }}" as="g" hint-placeholder-count="3">
+<button onClick="{{ g.pick }}" aria-pressed="{{ g.pressed }}" style="{{ g.style }}">
+<span style="{{ g.tile }}">{{ g.n }}</span>
+<span style="flex: 1; min-width: 0; text-align: left">
+<span style="display: block; font-size: 15px; font-weight: 800">{{ g.title }}</span>
+<span style="display: block; font-size: 12px; font-weight: 500; color: #6B6B76; margin-top: 3px">{{ g.why }}</span>
+</span>
+<span style="font-size: 14px; font-weight: 800">{{ g.price }}</span>
+</button>
+</sc-for>
+</div>
+
+<div style="position: absolute; top: 588px; left: 16px; right: 16px; padding: 14px 16px; border-radius: 20px; background: #F3F3F5">
+<div style="font-size: 11px; font-weight: 800; letter-spacing: 0.6px; color: #6B6B76">SHE SAID</div>
+<div style="font-size: 14px; font-weight: 600; line-height: 1.45; margin-top: 4px">Wants a low-key birthday. Mentioned the new matcha place twice this month.</div>
+</div>
+
+<a href="Main.dc.html" style="position: absolute; left: 16px; right: 16px; bottom: 74px; height: 56px; border-radius: 28px; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700">Plan it · remind me Friday</a>
+<a href="Gift.dc.html" style="position: absolute; left: 16px; right: 16px; bottom: 26px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #6B6B76">Show more ideas</a>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const pick = (this.state && this.state.pick) || 0;
+const list = [
+{ title: 'Matcha tasting for two', why: 'She brought up the new place on Valencia', price: '$45', bg: '#CDEBD6' },
+{ title: 'Vintage film camera', why: 'Lit up at one during your thrift run', price: '$80', bg: '#FFE3B8' },
+{ title: 'Mitski on vinyl', why: 'Played it all week at home', price: '$32', bg: '#E3D9FF' }
+];
+const ideas = list.map((g, i) => ({
+title: g.title, why: g.why, price: g.price, n: String(i + 1),
+pressed: i === pick ? 'true' : 'false',
+pick: () => this.setState({ pick: i }),
+tile: 'width: 52px; height: 52px; border-radius: 16px; background: ' + g.bg + '; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0',
+style: 'display: flex; align-items: center; gap: 12px; width: 100%; min-height: 84px; padding: 0 16px 0 14px; border-radius: 22px; font-family: inherit; color: #111111; cursor: pointer; background: #FFFFFF; border: 2px solid ' + (i === pick ? '#111111' : '#EFEFF2')
+}));
+return { ideas: ideas };
+}
+}
+</script>
+</body>
+</html>

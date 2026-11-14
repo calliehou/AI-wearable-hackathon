@@ -1,63 +1,53 @@
-# 6-Hour Build Plan — Callie × Mapa
+# Peri — Build Plan
 
-Times are relative to build start (**T+0:00**). Write the real clock times in the right column when the build starts.
+> **Peri hears the promises you make and helps you keep them, so the people you care about stay in your orbit.**
 
-## Roles
+**Re-baseline now. T+0:00 = ____ : ____ · Feature freeze (T+2:45) = ____ : ____ · Submit by (T+3:40) = ____ : ____**
 
-| | **Callie** — Build | **Mapa** — Story & Strategy |
-|---|---|---|
-| Owns | `app/`, `lib/`, API routes, Vexo integration, deploy | `docs/`, `prompts/`, pitch deck, demo video, README narrative |
-| Drives Claude Code for | features, integration, UI, bug fixes | prompt writing, mock data, test scripts, README draft (only in `docs/` + `prompts/`) |
-| Main question | "Does it work end to end?" | "Why does this matter, and will judges get it in 2 minutes?" |
-| Also | technical risk calls | judging-criteria map, user interviews, timekeeper, first tester |
-
-**Shared decisions (both must agree):** idea lock (T+0:30), scope cut (T+3:00), feature freeze (T+4:30).
-
-## Timeline
-
-| T+ | Clock | Callie | Mapa | Gate |
-|---|---|---|---|---|
-| 0:00–0:30 | | Run Vexo SDK "hello world": band → transcript on screen. Paste SDK docs into `docs/vendor/`. | Map judging criteria → features. Fill **Project** block in `CLAUDE.md`. Draft one-liner + wow moment. | **Idea locked** |
-| 0:30–1:00 | | Scaffold routes + adapters (real + mock). Deploy hello world to Vercel. | Write `docs/DEMO.md` (2-min script). Write companion persona in `prompts/`. | Demo script agreed |
-| 1:00–2:30 | | **Core loop P0:** voice in → LLM decides → haptic/UI out. Parallel: `ui-builder` on main screen. | 3–5 quick interviews (Vexo team, other hackers). Collect quotes. Start deck. Test the loop as soon as it exists. | |
-| 2:30–3:00 | | Merge; end-to-end on `main`. | Run the demo script on the real build; log bugs as issues. | **Checkpoint: E2E works (ugly OK)** |
-| 3:00 | | | | **Scope cut:** if E2E fails → mock the broken piece (Wizard of Oz) and move on |
-| 3:00–4:30 | | P1: wow moment polish, 1 extra signal (vision / env / location), design pass. | Deck to 80%. Business model + "why Vexo" slide. Record b-roll / screenshots. | |
-| 4:30 | | | | **Feature freeze** — bugs only after this |
-| 4:30–5:15 | | Bug fixes from `demo-qa`. Lock `main`. | Rehearse demo ×2 with timer. **Record backup demo video.** | Backup video saved |
-| 5:15–5:45 | | Run `readme-writer`; add architecture diagram + setup steps. | Edit README narrative, add GIF/video link, final deck. | |
-| 5:45–6:00 | | Final push, verify repo is public + deploy URL works. | **Submit** (GitHub link + README + video). Screenshot the confirmation. | **Submitted** |
-
-## Rituals
-
-- **Hourly sync, 5 min, on the hour:** each person says done / next / blocked, then updates `docs/PROGRESS.md`. Mapa keeps time.
-- **Blocked > 20 min → say it out loud.** Either pair on it or mock it.
-- **Priorities:** P0 = demo breaks without it. P1 = makes it win. P2 = nice to have (likely cut). Track as GitHub Issues with labels `P0` `P1` `P2` `callie` `mapa`.
-
-## Branches & merging
-
-- `main` = always demo-able (Vercel production).
-- `callie/<feature>`, `mapa/docs`, and worktrees for parallel Claude sessions.
-- Merge to `main` only after `npm run build` passes. Mapa's `docs/` and `prompts/` changes rarely conflict, so merge them often.
-
-## Parallel Claude Code sessions (git worktrees)
-
+Shrink the T+ times if you have less time left. Each task has a **⏱ timebox**: when it runs out, commit, mock the rest, and move on.
 ```bash
-# from repo root
-git worktree add ../hw-ui -b callie/ui
-git worktree add ../hw-core -b callie/core
-# terminal 1: cd ../hw-core && claude   → integrator work
-# terminal 2: cd ../hw-ui && claude     → ui-builder work
-# Mapa's laptop: main repo, branch mapa/docs
+sleep $((30*60)) && say "Time is up. Commit and move on."
 ```
 
-Rules: one worktree per area of the code, with no two sessions editing the same files. Merge back through `main`.
+## ✅ Callie — UI + orbit + pipeline
 
-## Fallbacks (decide early, not at T+5)
+| # | Task | ⏱ | Due | Done when | Status |
+|---|---|---|---|---|---|
+| C1 | Update `lib/types.ts` to the Peri contract; Tailwind tokens from `docs/DESIGN.md`; add the Plus Jakarta Sans font | 15m | T+0:15 | Builds | ⬜ |
+| C2 | Mock data `data/mock.json`: 11 people, 4 circles, 7 promises (3 due today), 4 activities for Kelly | 10m | T+0:25 | Loads | ⬜ |
+| C3 | **My orbit** `/`: rotating rings, avatars by ring, badges, due-today ring; scroll down to Due today postcards + This week checklist | 45m | T+1:10 | Matches `Main.dc.html` | ⬜ |
+| C4 | Bottom nav with center mic + **Contacts** `/contacts` | 20m | T+1:30 | Matches `People.dc.html` | ⬜ |
+| C5 | **Person** `/person/[id]`: stats, Recent activity sheet, open promises, About card | 30m | T+2:00 | Matches `Person.dc.html` | ⬜ |
+| C6 | 🔁 **Handoff with Mapa:** `/mic` → `/api/extract` → confirm → the promise appears on the orbit | 20m | T+2:20 | Live voice note works | ⬜ |
+| C7 | Pay → Promise kept flow (mock), or Ask Peri `/ask` if there's time | 25m | T+2:45 | Clickable | ⬜ |
+| — | 🧊 **FEATURE FREEZE** | | T+2:45 | | ⬜ |
+| C8 | Bug fixes, polish, deploy | 30m | T+3:15 | Demo runs twice | ⬜ |
+| C9 | README tech section + screenshots | 15m | T+3:30 | Done | ⬜ |
+| C10 | Final push; repo public; Vercel URL works in incognito | 10m | T+3:40 | Links open | ⬜ |
 
-| Risk | Fallback |
-|---|---|
-| Vexo SDK not working | `lib/adapters/vexo.mock.ts` replays a recorded transcript; laptop mic as input |
-| LLM latency too slow for demo | Pre-warm, stream responses, shorter prompts; cache demo responses |
-| Location/geofence hard to demo indoors | "Simulate arrival" button that fires the same event |
-| Live demo fails on stage | Backup video (recorded T+4:30–5:15) |
+## ✅ Mapa — Data, voice, prompts, pitch
+
+| # | Task | ⏱ | Due | Done when | Status |
+|---|---|---|---|---|---|
+| M1 | Vexo SDK: get one live transcript; save it to `data/raw/` | 30m | T+0:30 | Transcript text in hand | ⬜ |
+| M2 | Export real contacts (Callie's / test set) → `data/contacts.json` in the `Person` shape (name, circle, about) | 25m | T+0:55 | 10+ contacts | ⬜ |
+| M3 | `app/api/extract` + `prompts/extract.md`; test on 4 sentences: money, gift, task, plan | 40m | T+1:35 | 4/4 sorted correctly | ⬜ |
+| M4 | Speech-to-text for `/mic`: Vexo transcript if available, otherwise the Web Speech API | 30m | T+2:05 | Speak → text | ⬜ |
+| M5 | 🔁 **Handoff with Callie** (C6) | 20m | T+2:20 | Works live | ⬜ |
+| M6 | Pitch deck: problem → Peri → live demo → why a wearable → privacy → business | 25m | T+2:45 | 6 slides | ⬜ |
+| — | 🧊 **FEATURE FREEZE** | | T+2:45 | | ⬜ |
+| M7 | Rehearse twice; **record the backup video** | 30m | T+3:15 | Video saved | ⬜ |
+| M8 | README story (intro, problem, demo link, privacy, team) | 15m | T+3:30 | Done | ⬜ |
+| M9 | **Submit** + screenshot the confirmation | 10m | T+3:40 | Confirmed | ⬜ |
+
+## Demo story (2 min)
+1. **Orbit:** "This is Maya's orbit." Diego is close, with an orange ring: $120 due tonight.
+2. Swipe the **Due today** postcards: Diego's $120, Kelly's birthday.
+3. **Hold the mic:** "Remind me to bring Leo his charger tomorrow, and I owe Mom $40." Peri sorts it into 2 promises, and Leo and Mom's badges go up.
+4. **Kelly's page:** recent activity, the About card, a gift idea.
+5. **Pay Diego** → Promise kept → "Diego stays in your inner orbit."
+6. "Peri hears the promises you make and helps you keep them."
+
+## Mocks in use (list honestly in the README)
+- Payments (no real money moves)
+-

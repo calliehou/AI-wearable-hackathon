@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mendly · Circles</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; background: #FFFFFF; overflow: hidden; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #111111">
+
+<a href="People.dc.html" aria-label="Back to contacts" style="position: absolute; top: 52px; left: 16px; width: 44px; height: 44px; border-radius: 22px; background: #F3F3F5; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+
+<div style="position: absolute; top: 106px; left: 20px; right: 20px">
+<div style="font-size: 36px; font-weight: 800; letter-spacing: -1.2px">Circles</div>
+<div style="font-size: 14px; font-weight: 500; color: #6B6B76; margin-top: 4px">Tap a circle to see who's in it</div>
+</div>
+
+<div style="position: absolute; top: 184px; left: 16px; right: 16px; max-height: 312px; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+<button onClick="{{ c.pick }}" aria-pressed="{{ c.pressed }}" style="{{ c.style }}">
+<span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 800">{{ c.name }}</span><span style="font-size: 22px; font-weight: 800">{{ c.count }}</span></span>
+<span style="display: flex">
+<sc-for list="{{ c.faces }}" as="f" hint-placeholder-count="3">
+<span style="{{ f.style }}">{{ f.i }}</span>
+</sc-for>
+</span>
+</button>
+</sc-for>
+<button onClick="{{ openAdd }}" style="height: 96px; border-radius: 22px; border: 2px dashed #B9B9C3; background: #FFFFFF; font-family: inherit; color: #111111; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New circle</button>
+</div>
+
+<sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; top: 512px; left: 16px; right: 16px; border-radius: 24px; background: #F3F3F5; padding: 16px">
+<label for="circle-name" style="display: block; font-size: 13px; font-weight: 800">Name your circle</label>
+<input id="circle-name" value="{{ draft }}" onChange="{{ onDraft }}" placeholder="e.g. Climbing crew" style="width: 100%; box-sizing: border-box; margin-top: 8px; height: 48px; padding: 0 16px; border-radius: 16px; border: 1.5px solid #E4E4EA; background: #FFFFFF; font-family: inherit; font-size: 15px; font-weight: 600; color: #111111">
+<div style="font-size: 13px; font-weight: 800; margin-top: 14px">Color</div>
+<div style="display: flex; gap: 10px; margin-top: 8px">
+<sc-for list="{{ swatches }}" as="s" hint-placeholder-count="6">
+<button onClick="{{ s.pick }}" aria-pressed="{{ s.pressed }}" aria-label="{{ s.label }}" style="{{ s.style }}"></button>
+</sc-for>
+</div>
+<div style="display: flex; gap: 8px; margin-top: 16px">
+<button onClick="{{ create }}" style="flex: 1; height: 48px; border-radius: 24px; border: none; background: #111111; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Create circle</button>
+<button onClick="{{ cancel }}" style="height: 48px; padding: 0 18px; border-radius: 24px; border: none; background: #FFFFFF; color: #111111; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Cancel</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ notAdding }}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; top: 512px; left: 16px; right: 16px; bottom: 20px; overflow-y: auto">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 8px"><span style="font-size: 16px; font-weight: 800">{{ selName }}</span><span style="font-size: 13px; font-weight: 700; color: #6B6B76">{{ selCount }} people</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{ members }}" as="m" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 8px 0 10px; border-radius: 18px; background: #F3F3F5">
+<span style="{{ m.avatar }}">{{ m.initial }}</span>
+<span style="flex: 1; font-size: 14px; font-weight: 800">{{ m.name }}</span>
+<button onClick="{{ m.remove }}" aria-label="Remove from circle" style="width: 40px; height: 40px; border-radius: 20px; border: none; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ hasLoose }}" hint-placeholder-val="{{ true }}">
+<div style="font-size: 12px; font-weight: 800; color: #6B6B76; padding: 14px 4px 6px">MET ONCE · ADD THEM</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{ loose }}" as="l" hint-placeholder-count="2">
+<button onClick="{{ l.add }}" aria-label="{{ l.label }}" style="height: 40px; padding: 0 14px 0 6px; border-radius: 20px; border: 1.5px dashed #B9B9C3; background: #FFFFFF; font-family: inherit; color: #111111; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px"><span style="width: 28px; height: 28px; border-radius: 14px; background: #EDEDF1; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800">{{ l.initial }}</span>+ {{ l.name }}</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+sel: 1, adding: false, draft: '', color: '#F9C9C4',
+circles: [
+{ name: 'Family', bg: '#CDEBD6', members: ['Mom', 'Dad', 'Grandma'] },
+{ name: 'Friends', bg: '#FFE3B8', members: ['Kelly', 'Diego', 'Priya', 'Sam'] },
+{ name: 'Work', bg: '#CDEBFB', members: ['Camila', 'Jordan'] },
+{ name: 'School', bg: '#E3D9FF', members: ['Leo', 'Prof. Lee'] }
+],
+loose: ['Ava', 'Noah']
+};
+}
+renderVals() {
+const s = this.state;
+const selIdx = Math.min(s.sel, s.circles.length - 1);
+const sel = s.circles[selIdx];
+const face = (n, i) => ({ i: n.charAt(0), style: 'width: 30px; height: 30px; border-radius: 15px; background: #FFFFFF; border: 2px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; box-sizing: border-box' + (i ? '; margin-left: -9px' : '') });
+const cards = s.circles.map((c, idx) => {
+const on = idx === selIdx && !s.adding;
+return {
+name: c.name, count: String(c.members.length), faces: c.members.slice(0, 4).map(face),
+pressed: on ? 'true' : 'false',
+pick: () => this.setState({ sel: idx, adding: false }),
+style: 'display: flex; flex-direction: column; justify-content: space-between; height: 96px; padding: 12px 14px; border-radius: 22px; box-sizing: border-box; font-family: inherit; color: #111111; text-align: left; cursor: pointer; background: ' + c.bg + '; border: 2.5px solid ' + (on ? '#111111' : 'transparent')
+};
+});
+const members = sel.members.map((n) => ({
+name: n, initial: n.charAt(0),
+avatar: 'width: 36px; height: 36px; border-radius: 18px; background: ' + sel.bg + '; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0',
+remove: () => this.setState({ circles: s.circles.map((c, i) => i === selIdx ? { name: c.name, bg: c.bg, members: c.members.filter((m) => m !== n) } : c), loose: s.loose.concat([n]) })
+}));
+const loose = s.loose.map((n) => ({
+name: n, initial: n.charAt(0), label: 'Add ' + n + ' to ' + sel.name,
+add: () => this.setState({ circles: s.circles.map((c, i) => i === selIdx ? { name: c.name, bg: c.bg, members: c.members.concat([n]) } : c), loose: s.loose.filter((m) => m !== n) })
+}));
+const swatches = ['#F9C9C4', '#FFF0B8', '#CDEBD6', '#CDEBFB', '#E3D9FF', '#FFE3B8'].map((c) => ({
+label: 'Color ' + c, pressed: c === s.color ? 'true' : 'false',
+pick: () => this.setState({ color: c }),
+style: 'width: 40px; height: 40px; border-radius: 20px; cursor: pointer; padding: 0; background: ' + c + '; border: 3px solid ' + (c === s.color ? '#111111' : '#FFFFFF') + '; box-shadow: 0 0 0 1px #E4E4EA'
+}));
+return {
+cards: cards, members: members, loose: loose, swatches: swatches,
+hasLoose: s.loose.length > 0, adding: s.adding, notAdding: !s.adding,
+selName: sel.name, selCount: String(sel.members.length), draft: s.draft,
+openAdd: () => this.setState({ adding: true }),
+cancel: () => this.setState({ adding: false }),
+onDraft: (e) => this.setState({ draft: e.target.value }),
+create: () => {
+const n = (s.draft || '').trim();
+if (!n) return;
+this.setState({ circles: s.circles.concat([{ name: n, bg: s.color, members: [] }]), sel: s.circles.length, adding: false, draft: '' });
+}
+};
+}
+}
+</script>
+</body>
+</html>
