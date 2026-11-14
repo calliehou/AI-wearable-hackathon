@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, Pill, T } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
+import { RenameSheet } from "../../components/RenameSheet";
 import { confirmDelete } from "../../components/confirmDelete";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
@@ -29,6 +30,7 @@ export default function PersonScreen() {
   const [recapText, setRecapText] = useState("");
   const [note, setNote] = useState("");
   const [picking, setPicking] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
   const name = p?.name;
@@ -85,7 +87,11 @@ export default function PersonScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 32 }}>
         <View style={{ alignItems: "center" }}>
           <Avatar name={p.name} size={96} color={s.personColor(p)} badge={p.open || undefined} />
-          <T w="extrabold" style={{ fontSize: 30, letterSpacing: -0.8, marginTop: 10 }}>{p.name}</T>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Edit name: ${p.name}`} onPress={() => setRenaming(true)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, minHeight: 44 }}>
+            <T w="extrabold" style={{ fontSize: 30, letterSpacing: -0.8 }}>{p.name}</T>
+            <Icon name="edit" size={18} color={colors.muted} />
+          </Pressable>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 }}>
             {p.circles.map((c) => <Pill key={c} label={c} bg={s.circleColor(c) ?? colors.card} onPress={() => router.push("/circles")} />)}
             {!p.circles.length && <Pill label="Add to a circle" dashed onPress={() => router.push("/circles")} />}
@@ -191,6 +197,9 @@ export default function PersonScreen() {
           setPicking(false);
           router.back();
         }} />
+
+      <RenameSheet key={`rename-${renaming}`} visible={renaming} name={p.name} onClose={() => setRenaming(false)}
+        onSave={async (to) => { const nid = await s.renamePerson(p.name, to); router.replace({ pathname: "/person/[id]", params: { id: nid } }); }} />
 
       <Modal visible={showLog} animationType="slide" transparent onRequestClose={() => setShowLog(false)}>
         <Pressable accessibilityLabel="Close" onPress={() => setShowLog(false)} style={{ flex: 1, backgroundColor: "rgba(17,17,17,0.35)" }} />

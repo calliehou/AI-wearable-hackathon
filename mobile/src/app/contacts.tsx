@@ -8,6 +8,7 @@ import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, typeIcon } from "../components/Icon";
 import { Avatar, RoundButton, T } from "../components/ui";
 import { confirmDelete } from "../components/confirmDelete";
+import { RenameSheet } from "../components/RenameSheet";
 import { useStore } from "../data/store";
 import type { Person } from "../data/types";
 import { colors, fonts, TYPE_TONE } from "../theme";
@@ -17,6 +18,7 @@ export default function Contacts() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [showClear, setShowClear] = useState(false);
+  const [renaming, setRenaming] = useState<Person | null>(null);
   const q = query.trim().toLowerCase();
 
   const openOf = (p: Person) => s.openFor(p.id);
@@ -61,7 +63,8 @@ export default function Contacts() {
             const first = open[0];
             const types = [...new Set(open.map((t) => t.type))];
             return (
-              <Pressable key={p.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}
+              <Pressable key={p.id} accessibilityRole="button" accessibilityHint="Long press to edit the name" onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}
+                onLongPress={() => setRenaming(p)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 66, paddingHorizontal: 12, borderRadius: 20,
                   backgroundColor: urgent ? "#FFF1E8" : colors.card, borderWidth: urgent ? 1.5 : 0, borderColor: "#F9C9A8" }}>
                 <Avatar name={p.name} size={42} color={s.personColor(p)} badge={p.open} ring={urgent} />
@@ -107,7 +110,8 @@ export default function Contacts() {
         {(showClear || !!q) && (
           <View style={{ paddingHorizontal: 20, marginTop: 6 }}>
             {clear.map((p) => (
-              <Pressable key={p.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}
+              <Pressable key={p.id} accessibilityRole="button" accessibilityHint="Long press to edit the name" onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}
+                onLongPress={() => setRenaming(p)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 12, height: 56, borderBottomWidth: 1.5, borderBottomColor: colors.card }}>
                 <Avatar name={p.name} size={36} color={s.personColor(p)} faded={p.drifting} />
                 <T w="extrabold" style={{ flex: 1, fontSize: 15 }}>{p.name}</T>
@@ -159,6 +163,10 @@ export default function Contacts() {
         )}
       </ScrollView>
       <BottomNav />
+      {renaming && (
+        <RenameSheet key={renaming.id} visible name={renaming.name} onClose={() => setRenaming(null)}
+          onSave={async (to) => { await s.renamePerson(renaming.name, to); }} />
+      )}
     </View>
   );
 }

@@ -37,6 +37,7 @@ type Store = {
   setMembership: (person: string, circle: string, member: boolean) => Promise<void>;
   pauseBand: (paused: boolean) => Promise<void>;
   setPayee: (person: string, change: Payee) => Promise<void>;
+  renamePerson: (from: string, to: string) => Promise<string>; // returns the new person id
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -218,6 +219,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const id = slug(personName);
         patchLocal((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, payee: { ...p.payee, ...change } } : p)) }));
         return thenRefresh(api.setPayee(personName, change));
+      },
+      renamePerson: async (from, to) => {
+        const r = await api.renamePerson(from, to);
+        await refresh();
+        return r.id;
       },
       pauseBand: (paused) => {
         patchLocal((s) => ({ ...s, band: { ...s.band, paused } }));

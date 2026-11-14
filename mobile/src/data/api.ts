@@ -83,6 +83,8 @@ export const setMembership = (person: string, circle: string, member: boolean) =
 
 export const setPayee = (person: string, change: import("./types").Payee) => call("/api/peri/payee", json("POST", { person, ...change }));
 
+export const renamePerson = (from: string, to: string) => call<{ id: string; name: string }>("/api/peri/people/rename", json("POST", { from, to }));
+
 export const pauseBand = (paused: boolean) => call("/api/peri/band", json("POST", { paused }));
 
 // ---- things Claude works out on the Mac

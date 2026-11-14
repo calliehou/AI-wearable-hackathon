@@ -363,3 +363,47 @@ export async function deletePromise(id: string) {
   await writePromises(left);
   return true;
 }
+
+// Rename a person everywhere Peri knows them: promises, conversations, circles, Venmo
+// username and the voice memory (so the band recognises them under the new name).
+export async function renamePersonEverywhere(from: string, to: string) {
+  const oldId = personId(from);
+  const name = to.trim().slice(0, 60);
+  if (!name) throw new Error("The new name is empty.");
+  const newId = personId(name);
+  const same = (n: string | null | undefined) => !!n && personId(n) === oldId;
+  let changes = 0;
+
+  const promises = await readPromises();
+  for (const p of promises) if (same(p.person_name)) { p.person_name = name; changes++; }
+  await writePromises(promises);
+
+  const INTER = path.join(DATA, "interactions.json");
+  const inter = await readJson<Interaction[]>(INTER, []);
+  for (const it of inter) for (const p of it.people) if (same(p.name)) { p.name = name; changes++; }
+  if (inter.length) await writeJson(INTER, inter);
+
+  const circles = await readCircles();
+  if (circles.members[oldId]) {
+    circles.members[newId] = [...new Set([...(circles.members[newId] ?? []), ...circles.members[oldId]])];
+    if (newId !== oldId) delete circles.members[oldId];
+    await writeJson(CIRCLES, circles);
+  }
+
+  const payees = await readPayees();
+  if (payees[oldId]) {
+    payees[newId] = { ...payees[oldId], ...payees[newId] };
+    if (newId !== oldId) delete payees[oldId];
+    await writeJson(PAYEES, payees);
+  }
+
+  const VOICES = path.join(DATA, "voiceprints.json");
+  const voices = await readJson<Record<string, number[][]>>(VOICES, {});
+  const key = Object.keys(voices).find((k) => personId(k) === oldId);
+  if (key && key !== name) {
+    voices[name] = [...(voices[name] ?? []), ...voices[key]].slice(-40);
+    delete voices[key];
+    await writeJson(VOICES, voices);
+  }
+  return { id: newId, name, changes };
+}
