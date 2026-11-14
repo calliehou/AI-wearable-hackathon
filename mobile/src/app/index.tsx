@@ -2,7 +2,8 @@
 // this week's promises; and voices the band heard but couldn't name.
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, PeriMark, typeIcon } from "../components/Icon";
@@ -11,6 +12,7 @@ import { Avatar, Pill, Section, T } from "../components/ui";
 import { WhoPicker } from "../components/WhoPicker";
 import { confirmDelete } from "../components/confirmDelete";
 import { DragList, type Handle } from "../components/DragList";
+import { BurstLayer, useBurst } from "../components/Burst";
 import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
 import type { Person, Todo } from "../data/types";
@@ -53,8 +55,9 @@ export default function MyOrbit() {
   const shown = s.todos.filter((t) => t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
   const week = shown.filter((t) => t.status === "open" && WEEK.includes(t.dueLabel)).sort(byRank);
   // Everything else: later or undated promises first, then the ones you kept.
-  const other = shown.filter((t) => !week.includes(t) && !(t.status === "open" && TODAY.includes(t.dueLabel)))
-    .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0) || byRank(a, b) || b.heardIso.localeCompare(a.heardIso));
+  // Kept promises leave home (they're under "kept" on each person's card).
+  const other = shown.filter((t) => t.status === "open" && !week.includes(t) && !TODAY.includes(t.dueLabel))
+    .sort((a, b) => byRank(a, b) || b.heardIso.localeCompare(a.heardIso));
   const dueToday = new Set(today.map((t) => t.personId));
 
   const planet = (p: Person, size: number) => ({
@@ -146,7 +149,7 @@ export default function MyOrbit() {
             {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
           </View>
 
-          <Section title={`Later · ${other.filter((t) => t.status === "open").length}`} right={other.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
+          <Section title={`Later · ${other.length}`} right={other.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
             <DragList items={other} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
               render={(t, handle) => <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} />} />
@@ -254,11 +257,20 @@ function Arrows({ order, horizontal }: { order: Order; horizontal?: boolean }) {
 function WeekRow({ todo, onWho, order, handle }: { todo: Todo; onWho: () => void; order?: Order; handle?: Handle }) {
   const s = useStore();
   const p = s.person(todo.personId);
-  const done = todo.status === "done";
+  const burst = useBurst();
+  const done = todo.status === "done" || burst.active;
+  function tick() {
+    if (todo.status === "done") { s.setStatus(todo.id, "open"); return; }
+    // Bubble burst, then it's saved as kept and leaves the list.
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    burst.play(() => s.setStatus(todo.id, "done"));
+  }
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 70, paddingLeft: 12, paddingRight: 10, borderRadius: 22, backgroundColor: colors.card, opacity: done ? 0.55 : 1 }}>
+    <Animated.View style={[{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 70, paddingLeft: 12, paddingRight: 10, borderRadius: 22,
+      backgroundColor: colors.card, opacity: todo.status === "done" ? 0.55 : 1, zIndex: burst.active ? 20 : 0 }, burst.rowStyle]}>
+      {burst.active && <BurstLayer t={burst.t} x={26} y={35} />}
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`${done ? "Mark not done" : "Mark done"}: ${todo.title}`}
-        onPress={() => s.setStatus(todo.id, done ? "open" : "done")} hitSlop={8}
+        onPress={tick} disabled={burst.active} hitSlop={8}
         style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, borderColor: done ? colors.ink : colors.greyRing, backgroundColor: done ? colors.ink : colors.white, alignItems: "center", justifyContent: "center" }}>
         {done && <Icon name="tick" size={14} color={colors.white} stroke={3} />}
       </Pressable>
@@ -292,6 +304,6 @@ function WeekRow({ todo, onWho, order, handle }: { todo: Todo; onWho: () => void
           <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
         </Pressable>
       )}
-    </View>
+    </Animated.View>
   );
 }
