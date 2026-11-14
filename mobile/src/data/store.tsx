@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from "react-native";
 import * as api from "./api";
 import { contactsPermission, findContact, loadContacts, type PhoneContact } from "./contacts";
-import type { Circle, Person, Todo } from "./types";
+import type { Circle, Payee, Person, Todo } from "./types";
 
 type Store = {
   ready: boolean;
@@ -35,6 +35,7 @@ type Store = {
   createCircle: (name: string, color: string) => Promise<void>;
   setMembership: (person: string, circle: string, member: boolean) => Promise<void>;
   pauseBand: (paused: boolean) => Promise<void>;
+  setPayee: (person: string, change: Payee) => Promise<void>;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -206,6 +207,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           people: s.people.map((p) => (p.id === id ? { ...p, circles: member ? [...new Set([...p.circles, circle])] : p.circles.filter((c) => c !== circle) } : p)),
         }));
         return thenRefresh(api.setMembership(personName, circle, member));
+      },
+      setPayee: (personName, change) => {
+        const id = slug(personName);
+        patchLocal((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, payee: { ...p.payee, ...change } } : p)) }));
+        return thenRefresh(api.setPayee(personName, change));
       },
       pauseBand: (paused) => {
         patchLocal((s) => ({ ...s, band: { ...s.band, paused } }));

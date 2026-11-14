@@ -10,6 +10,7 @@ const PROMISES = path.join(DATA, "promises.json");
 const CIRCLES = path.join(DATA, "circles.json");
 const LIVE = path.join(DATA, "live.json");
 const CONTROL = path.join(DATA, "control.json");
+const PAYEES = path.join(DATA, "payees.json");
 
 export type Kind = "money" | "gift" | "task" | "plan" | "send" | "call" | "bring" | "meet" | "other";
 export type PromiseType = "Money" | "Gift" | "Task" | "Plan";
@@ -124,15 +125,33 @@ export async function setMembership(person: string, circle: string, member: bool
   return f;
 }
 
+// ---- payment usernames (Venmo / Cash App / PayPal), entered once per person in the app
+
+export type Payee = { venmo?: string; cashapp?: string; paypal?: string; method?: "venmo" | "cashapp" | "paypal" };
+export const readPayees = () => readJson<Record<string, Payee>>(PAYEES, {});
+
+export async function setPayee(person: string, change: Payee) {
+  const all = await readPayees();
+  const id = personId(person);
+  const clean = (v?: string) => v?.trim().replace(/^[@$]/, "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 40) || undefined;
+  const next: Payee = { ...all[id] };
+  for (const k of ["venmo", "cashapp", "paypal"] as const) if (change[k] !== undefined) next[k] = clean(change[k]);
+  if (change.method) next.method = change.method;
+  all[id] = next;
+  await writeJson(PAYEES, all);
+  return next;
+}
+
 // ---- the snapshot the app polls
 
 export type UnknownVoice = { interaction_id: string; speaker: number; quote: string; title: string; heard: string; seconds: number };
 
 export async function snapshot() {
-  const [stored, interactions, circleFile, live, control] = await Promise.all([
+  const [stored, interactions, circleFile, live, control, payees] = await Promise.all([
     readPromises(), realInteractions(), readCircles(),
     readJson<{ updated_at?: number; connected?: boolean; recording?: boolean } | null>(LIVE, null),
     readJson<{ paused?: boolean }>(CONTROL, {}),
+    readPayees(),
   ]);
   type P = { id: string; name: string; lastAt: string; talks30: number; talks14: number; moments: number };
   const people = new Map<string, P>();
@@ -209,6 +228,7 @@ export async function snapshot() {
       drifting: p.moments > 0 && daysQuiet > 14,
       quietFor: p.moments ? short(p.lastAt) : null,
       circles: circleFile.members[p.id] ?? [],
+      payee: payees[p.id] ?? {},
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 

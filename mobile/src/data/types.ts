@@ -17,7 +17,12 @@ export type Person = {
   drifting: boolean;
   quietFor: string | null;
   circles: string[];
+  payee: Payee;
 };
+
+// Payment usernames for a person; payments are approved in that app, never inside Peri.
+export type Payee = { venmo?: string; cashapp?: string; paypal?: string; method?: PayMethod };
+export type PayMethod = "venmo" | "cashapp" | "paypal";
 
 export type Todo = {
   id: string;

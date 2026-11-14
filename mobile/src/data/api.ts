@@ -78,6 +78,8 @@ export const createCircle = (name: string, color: string) => call("/api/peri/cir
 export const setMembership = (person: string, circle: string, member: boolean) =>
   call("/api/peri/circles/members", json("POST", { person, circle, member }));
 
+export const setPayee = (person: string, change: import("./types").Payee) => call("/api/peri/payee", json("POST", { person, ...change }));
+
 export const pauseBand = (paused: boolean) => call("/api/peri/band", json("POST", { paused }));
 
 // ---- things Claude works out on the Mac
