@@ -14,24 +14,25 @@ const DIR = path.join(process.cwd(), "data", "recaps");
 const VOICE = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // ElevenLabs' example voice; set your own in .env
 const WEARER = "Mapa";
 
-const SYSTEM = `You write a spoken recap, read aloud into ${WEARER}'s earbuds, of the last week of conversations between ${WEARER} (the listener, call them "you") and one person.
-- 2 to 4 short sentences, at most 70 words, natural spoken English, no lists, no headings, no emoji.
-- Lead with what matters: open promises you made to them (what and when), then what you talked about, then anything they asked or offered.
-- Use the person's first name, or "they"; never guess "he" or "she".
-- Only facts from the material. Don't invent dates, amounts or feelings.`;
+const SYSTEM = `You write a very short spoken recap about one person, read aloud into ${WEARER}'s earbuds (call ${WEARER} "you").
+At most 3 short sentences and 45 words, natural spoken English, no lists, no emoji:
+1. What your last conversation with them was about (one sentence).
+2. Any promise you still owe them, with what and when. If there is none, skip this sentence.
+3. One fun fact or useful thing to remember about them, from the material. If there is none, skip it.
+Use their first name or "they"; never guess "he" or "she". Only facts from the material; never invent.`;
 
 export async function GET(req: Request) {
   const name = new URL(req.url).searchParams.get("name")?.trim();
   if (!name) return NextResponse.json({ error: "send ?name=" }, { status: 400 });
-  const { talks, promises } = await recentWith(name);
+  const { talks, promises } = await recentWith(name, 30);
   const first = name.split(" ")[0];
   if (!talks.length && !promises.length) {
-    return NextResponse.json({ text: `Your band hasn't heard you and ${first} this week yet.`, audio: null, note: "nothing yet" });
+    return NextResponse.json({ text: `Your band hasn't heard you and ${first} talk yet.`, audio: null, note: "nothing yet" });
   }
 
   const material = [
     ...promises.filter((p) => p.status === "open").map((p) => `Open promise: ${p.title} (due ${p.due_label}${p.due_detail ? " " + p.due_detail : ""}). You said: "${p.quote}"`),
-    ...talks.slice(0, 8).map((t) => `${new Date(t.started_at).toDateString()}: ${t.title}. ${t.summary}${t.follow_ups.length ? " Follow-ups: " + t.follow_ups.join("; ") : ""}`),
+    ...talks.slice(0, 8).map((t, i) => `${i === 0 ? "MOST RECENT · " : ""}${new Date(t.started_at).toDateString()}: ${t.title}. ${t.summary}${t.topics.length ? " Topics: " + t.topics.join(", ") + "." : ""}${t.follow_ups.length ? " Follow-ups: " + t.follow_ups.join("; ") : ""}`),
   ].join("\n");
   const key = createHash("sha1").update(name + material).digest("hex").slice(0, 16);
   const mp3 = path.join(DIR, `${key}.mp3`);

@@ -223,7 +223,7 @@ export default function PersonScreen() {
                     <T w="extrabold" style={{ fontSize: 14, flex: 1 }}>{e.title}</T>
                     <T w="medium" style={{ fontSize: 12, color: colors.muted }}>{e.when}</T>
                   </View>
-                  <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 3, lineHeight: 18 }}>{e.note}</T>
+                  <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 3, lineHeight: 18 }} numberOfLines={1}>{firstSentence(e.note)}</T>
                 </View>
               </View>
             ))}
@@ -233,6 +233,12 @@ export default function PersonScreen() {
       </Modal>
     </View>
   );
+}
+
+// One short line per conversation in the log.
+function firstSentence(text: string) {
+  const m = text.match(/^.*?[.!?](\s|$)/);
+  return (m ? m[0] : text).trim();
 }
 
 function Stat({ big, small }: { big: string; small: string }) {
