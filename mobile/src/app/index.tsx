@@ -12,6 +12,7 @@ import { Avatar, Pill, Section, T } from "../components/ui";
 import { WhoPicker } from "../components/WhoPicker";
 import { confirmDelete } from "../components/confirmDelete";
 import { DragList, type Handle } from "../components/DragList";
+import { SwipeToDelete } from "../components/SwipeToDelete";
 import { BurstLayer, useBurst } from "../components/Burst";
 import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
@@ -152,7 +153,11 @@ export default function MyOrbit() {
           <Section title={`Later · ${other.length}`} right={other.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
             <DragList items={other} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
-              render={(t, handle) => <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} />} />
+              render={(t, handle) => (
+                <SwipeToDelete label={`Delete ${t.title}`} onDelete={(reset) => confirmDelete(t, s.deletePromise, undefined, reset)}>
+                  <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} swipe />
+                </SwipeToDelete>
+              )} />
             {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing later.</T>}
           </View>
 
@@ -254,7 +259,7 @@ function Arrows({ order, horizontal }: { order: Order; horizontal?: boolean }) {
   return <View style={{ flexDirection: horizontal ? "row" : "column", gap: 4 }}>{btn(-1, order.first)}{btn(1, order.last)}</View>;
 }
 
-function WeekRow({ todo, onWho, order, handle }: { todo: Todo; onWho: () => void; order?: Order; handle?: Handle }) {
+function WeekRow({ todo, onWho, order, handle, swipe }: { todo: Todo; onWho: () => void; order?: Order; handle?: Handle; swipe?: boolean }) {
   const s = useStore();
   const p = s.person(todo.personId);
   const burst = useBurst();
@@ -298,7 +303,7 @@ function WeekRow({ todo, onWho, order, handle }: { todo: Todo; onWho: () => void
           <Icon name="grip" size={18} color={handle.dragging ? colors.ink : colors.grey} />
         </View>
       ) : null}
-      {order ? <Arrows order={order} /> : (
+      {order ? <Arrows order={order} /> : swipe ? null : (
         <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
           style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
           <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
