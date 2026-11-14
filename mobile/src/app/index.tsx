@@ -16,6 +16,9 @@ import type { Person, Todo } from "../data/types";
 import { CARD_TONE, CIRCLE_DOTS, colors } from "../theme";
 
 const TODAY = ["Today", "Tonight"];
+// Due within the next few days: tomorrow or a named weekday.
+const WEEK = ["Tmrw", "Tomorrow", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "This week"];
 
 export default function MyOrbit() {
   const s = useStore();
@@ -29,7 +32,11 @@ export default function MyOrbit() {
   const people = s.people.filter((p) => inCircle(p));
   const open = s.todos.filter((t) => t.status === "open" && (!circle || inCircle(s.person(t.personId))));
   const today = open.filter((t) => TODAY.includes(t.dueLabel));
-  const week = s.todos.filter((t) => !TODAY.includes(t.dueLabel) && t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
+  const shown = s.todos.filter((t) => t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
+  const week = shown.filter((t) => t.status === "open" && WEEK.includes(t.dueLabel));
+  // Everything else: later or undated promises first, then the ones you kept.
+  const other = shown.filter((t) => !week.includes(t) && !(t.status === "open" && TODAY.includes(t.dueLabel)))
+    .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0) || b.heardIso.localeCompare(a.heardIso));
   const dueToday = new Set(today.map((t) => t.personId));
 
   const planet = (p: Person, size: number) => ({
@@ -135,12 +142,20 @@ export default function MyOrbit() {
             </>
           )}
 
-          <Section title={`This week · ${week.filter((t) => t.status === "open").length}`} right={
+          <Section title={`This week · ${week.length}`} right={
             <Pressable accessibilityRole="link" onPress={() => router.replace("/contacts")} hitSlop={8}><T style={{ fontSize: 13, color: colors.muted }}>All contacts</T></Pressable>
           } />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
             {week.map((t) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
-            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>No other promises this week.</T>}
+            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
+          </View>
+
+          <Section title={`Other promises · ${other.filter((t) => t.status === "open").length}`} right={
+            other.some((t) => t.status === "done") ? <T style={{ fontSize: 13, color: colors.muted }}>{other.filter((t) => t.status === "done").length} kept</T> : null
+          } />
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            {other.map((t) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+            {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>No other promises.</T>}
           </View>
         </View>
       </ScrollView>
@@ -171,6 +186,10 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
         <View style={{ position: "absolute", top: 12, left: 12, right: 70, backgroundColor: colors.white, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 10 }}>
           <T style={{ fontSize: 12 }} numberOfLines={1}>“{todo.quote}”</T>
         </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
+          style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
+          <Icon name="close" size={13} color={colors.soft} stroke={2.6} />
+        </Pressable>
         <View style={{ position: "absolute", bottom: 12, left: 12, backgroundColor: colors.ink, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center" }}>
           <Icon name={typeIcon[todo.type]} size={11} color={colors.white} stroke={2.6} />
           <T style={{ fontSize: 11, color: colors.white }}>{todo.type}</T>
@@ -201,7 +220,7 @@ function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
   const p = s.person(todo.personId);
   const done = todo.status === "done";
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingLeft: 12, paddingRight: 14, borderRadius: 22, backgroundColor: colors.card, opacity: done ? 0.55 : 1 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 70, paddingLeft: 12, paddingRight: 10, borderRadius: 22, backgroundColor: colors.card, opacity: done ? 0.55 : 1 }}>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`${done ? "Mark not done" : "Mark done"}: ${todo.title}`}
         onPress={() => s.setStatus(todo.id, done ? "open" : "done")} hitSlop={8}
         style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, borderColor: done ? colors.ink : colors.greyRing, backgroundColor: done ? colors.ink : colors.white, alignItems: "center", justifyContent: "center" }}>
@@ -222,8 +241,12 @@ function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
           )}
         </View>
         <View style={{ backgroundColor: colors.white, borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
-          <T w="extrabold" style={{ fontSize: 12 }}>{todo.dueLabel}</T>
+          <T w="extrabold" style={{ fontSize: 12 }}>{done ? "Kept" : todo.dueLabel}</T>
         </View>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
+        style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
+        <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
       </Pressable>
     </View>
   );
