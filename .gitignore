@@ -27,3 +27,5 @@ vexo-open-kit/
 # Recorded conversations (real people): never committed
 data/interactions.json
 data/*.tmp
+data/live.json
+*.tsbuildinfo

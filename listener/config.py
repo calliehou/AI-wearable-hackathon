@@ -7,6 +7,7 @@ WEARER = "Mapa"                   # who wears the band; Claude names the wearer'
 ROOT = Path(__file__).resolve().parent.parent
 KIT = ROOT / "vexo-open-kit"      # local clone of github.com/VexoAI-Org/vexo-open-kit (gitignored)
 DATA_FILE = ROOT / "data" / "interactions.json"      # real conversations: gitignored, never committed
+LIVE_FILE = ROOT / "data" / "live.json"             # the conversation in progress, for the Live page
 PROMPT_FILE = ROOT / "prompts" / "interaction.md"    # Claude's instructions (Mapa owns the wording)
 
 MODEL = "claude-opus-5-5"

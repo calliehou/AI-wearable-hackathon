@@ -38,13 +38,18 @@ def log(text):
     print("[%s] %s" % (time.strftime("%H:%M:%S"), text), flush=True)
 
 
-def finish(started_at, ended_at, turns, source):
-    """Claude reads the conversation; the result is saved. Runs on a background thread."""
+def finish(started_at, ended_at, turns, source, voices=None):
+    """Claude reads the conversation; the result is saved. Runs on a background thread.
+    voices: the Recorder's map of speaker number -> who that voice is, for this stream.
+    Claude gets it as a hint, and what Claude finds is written back into it."""
     if not turns:
         return
     with save_lock:
         try:
-            reading = summarize.read_conversation(turns, store.known_people())
+            hints = dict(voices.snapshot()) if voices else {}
+            reading = summarize.read_conversation(turns, store.known_people(), hints)
+            if voices:
+                voices.learn(reading["people"])
             item = store.save(started_at, ended_at, turns, reading, source)
         except RuntimeError as error:
             # Keep the words even when Claude fails, so nothing recorded is lost.
@@ -67,6 +72,38 @@ def cut(words, wall_start):
     return started_at, ended_at, diarize.turns_from_words(shifted)
 
 
+class Voices:
+    """Who each Deepgram speaker number is, for one stream. Deepgram keeps the same number
+    for the same voice for as long as the stream stays open, so once a voice is named
+    (by Claude, or by being the wearer) that name follows it into every later conversation."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.people = {}                         # 1 -> {"name": "Sam", "is_wearer": False}
+
+    def learn(self, people):
+        with self.lock:
+            for p in people:
+                known = self.people.get(p["speaker"], {})
+                self.people[p["speaker"]] = {
+                    "name": p["name"] or known.get("name"),
+                    "is_wearer": p["is_wearer"] or known.get("is_wearer", False),
+                }
+
+    def snapshot(self):
+        with self.lock:
+            return {k: dict(v) for k, v in self.people.items()}
+
+
+def write_live(state):
+    """data/live.json: what the app's Live page shows. Rewritten about twice a second."""
+    import json
+    config.LIVE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = config.LIVE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(config.LIVE_FILE)
+
+
 class Recorder:
     """Keeps one Deepgram stream open on the band's sound and cuts it into interactions."""
 
@@ -74,10 +111,13 @@ class Recorder:
         self.band, self.source, self.gap, self.longest = band, source, gap, longest
         self.ears = None
         self.done_upto = 0                       # words before this index are already saved
+        self.voices = Voices()
+        self.last_saved_at = None
 
     def open(self):
         self.ears = diarize.DiarizedSpeech().start(lambda text, final: log("  " + text) if final else None)
         self.done_upto = 0
+        self.voices = Voices()                   # a new stream numbers the voices afresh
         self.band.on("audio", self.ears.feed)
 
     def close(self):
@@ -98,13 +138,33 @@ class Recorder:
         self.done_upto += len(words)
         if words:
             started_at, ended_at, turns = cut(words, self.ears.started_wall)
-            worker = threading.Thread(target=finish, args=(started_at, ended_at, turns, self.source), daemon=True)
+            worker = threading.Thread(target=finish, args=(started_at, ended_at, turns, self.source, self.voices),
+                                      daemon=True)
+            self.last_saved_at = time.time()
             workers.append(worker)
             worker.start()
             log("Conversation ended (%d turns): Claude is reading it while recording goes on." % len(turns))
 
+    def live(self, connected=True):
+        """Write the conversation in progress, split by voice, for the app's Live page."""
+        state = {"updated_at": time.time(), "band": config.BAND, "connected": connected,
+                 "recording": bool(connected and self.ears), "wearer": config.WEARER,
+                 "voices": {str(k): v for k, v in self.voices.snapshot().items()},
+                 "started_at": None, "turns": [], "interim": None,
+                 "last_saved_at": self.last_saved_at, "silence_gap": self.gap}
+        if self.ears:
+            pending = self.ears.words[self.done_upto:]
+            if pending:
+                started_at, _, turns = cut(pending, self.ears.started_wall)
+                state["started_at"], state["turns"] = started_at.isoformat(), turns
+            interim = list(self.ears.interim)
+            if interim:
+                state["interim"] = {"speaker": interim[0]["speaker"], "text": " ".join(w["word"] for w in interim)}
+        write_live(state)
+
     def check(self, tapped):
-        """Called about once a second: end the conversation on silence, a tap or length."""
+        """Called about twice a second: end the conversation on silence, a tap or length."""
+        self.live()
         pending = self.ears.words[self.done_upto:]
         if not pending:
             return
@@ -143,7 +203,7 @@ def run_always(transport, source, gap, longest, stop_after=None):
             rec.open()
             band.configure(audio=True, events=True)          # solid blue: the microphone is on
             while band.connected:
-                time.sleep(1)
+                time.sleep(0.5)
                 if rec.ears.closed:                          # Deepgram hung up: open a new stream
                     log("The speech service disconnected; reconnecting (nothing said so far is lost).")
                     rec.close()
@@ -155,6 +215,7 @@ def run_always(transport, source, gap, longest, stop_after=None):
                     raise KeyboardInterrupt
             log("The band disconnected. Reconnecting...")
             rec.close()
+            rec.live(connected=False)
         except KeyboardInterrupt:
             log("Stopping: saving the last conversation...")
             rec.close()
@@ -165,6 +226,7 @@ def run_always(transport, source, gap, longest, stop_after=None):
             band.disconnect()
             for worker in workers:                           # wait for Claude to finish
                 worker.join(timeout=120)
+            rec.live(connected=False)
             log("Stopped.")
             return
         except Exception as error:                           # keep going whatever happens

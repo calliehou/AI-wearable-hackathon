@@ -19,6 +19,7 @@ class DiarizedSpeech(speech.DeepgramSpeech):
         self.words = []                       # [{"speaker": 0, "word": "Hi,", "start": 0.4, "end": 0.6}]
         self.last_word_at = None              # computer clock when the last word arrived
         self.started_wall = None              # computer clock when the stream opened
+        self.interim = []                     # words of the sentence being spoken (may still change)
 
     def start(self, on_text=None):
         super().start(on_text)
@@ -31,7 +32,12 @@ class DiarizedSpeech(speech.DeepgramSpeech):
         return self._done.is_set()
 
     def _message(self, message):
+        if message.get("type") == "Results" and not message.get("is_final"):
+            best = (message.get("channel", {}).get("alternatives") or [{}])[0]
+            self.interim = [{"speaker": int(w.get("speaker", 0)), "word": w.get("punctuated_word") or w.get("word") or ""}
+                            for w in best.get("words") or []]
         if message.get("type") == "Results" and message.get("is_final"):
+            self.interim = []
             best = (message.get("channel", {}).get("alternatives") or [{}])[0]
             for w in best.get("words") or []:
                 self.words.append({

@@ -52,18 +52,23 @@ def transcript_text(turns):
     return "\n".join("Speaker %d: %s" % (t["speaker"], t["text"]) for t in turns)
 
 
-def read_conversation(turns, known_people):
+def read_conversation(turns, known_people, voices=None):
     """Returns the dict described by SCHEMA. Raises RuntimeError with a short reason."""
     load_env_file()
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise RuntimeError("No ANTHROPIC_API_KEY: add it to the .env file in the repo root.")
     speakers = sorted({t["speaker"] for t in turns})
     known = ", ".join(known_people) if known_people else "(nobody yet)"
+    voices = voices or {}
+    heard = [("Speaker %d = %s%s" % (n, v["name"], " (the wearer)" if v.get("is_wearer") else ""))
+             for n, v in sorted(voices.items()) if v.get("name") and n in speakers]
     user = (
         "The wearer is: %s\n"
         "People the wearer has met before: %s\n"
-        "Speakers in this conversation: %s\n\n"
-        "Conversation:\n%s" % (config.WEARER, known,", ".join(str(s) for s in speakers), transcript_text(turns))
+        "Speakers in this conversation: %s\n"
+        "Voices already identified earlier in this same recording (same voice, same number): %s\n\n"
+        "Conversation:\n%s" % (config.WEARER, known, ", ".join(str(s) for s in speakers),
+                                "; ".join(heard) or "(none)", transcript_text(turns))
     )
     client = anthropic.Anthropic()
     try:
@@ -102,6 +107,11 @@ def read_conversation(turns, known_people):
         if s not in seen:
             people.append({"speaker": s, "name": None, "is_wearer": False, "evidence": "Not identified."})
     for p in people:
+        earlier = voices.get(p["speaker"], {})
+        if not p["name"] and earlier.get("name"):
+            p["name"], p["evidence"] = earlier["name"], "Same voice as earlier in this recording."
+        if earlier.get("is_wearer") and not any(q["is_wearer"] for q in people):
+            p["is_wearer"] = True
         if p["is_wearer"]:
             p["name"] = config.WEARER     # the wearer's name is known; don't rely on it being said
     result["people"] = sorted(people, key=lambda p: p["speaker"])
