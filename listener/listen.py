@@ -345,6 +345,12 @@ def run_always(transport, source, gap, longest, stop_after=None):
             log("Could not reach band %d: %s Trying again in 5 s." % (config.BAND, error.message))
             time.sleep(5)
             continue
+        except Exception as error:               # e.g. Bluetooth off or not allowed: keep trying
+            hint = (" On a Mac, allow Bluetooth for the app running this (System Settings > Privacy & Security > Bluetooth)."
+                    if "turned off" in str(error) or "unauthorized" in str(error).lower() else "")
+            log("Could not reach band %d: %s.%s Trying again in 5 s." % (config.BAND, error, hint))
+            time.sleep(5)
+            continue
         log("Connected to %s. Recording everything, non-stop. Ctrl+C to quit." % band.name)
         log("Note: everything the band hears is sent to Deepgram, and the text to Claude. "
             "Tell the people near you.")
