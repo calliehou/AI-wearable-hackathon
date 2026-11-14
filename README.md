@@ -5,8 +5,10 @@
 The name comes from *perigee*, the point where an orbit comes closest. A Vexo Band listens for
 commitments in everyday conversation ("I'll send you $120 tonight", "your birthday's Saturday,
 right?"). Peri files each one under the right person as **money, gift, task or plan**, puts that
-person in your **orbit**, and helps you keep the promise with reminders, gift ideas or a
-prefilled Venmo payment.
+person in your **orbit**, and helps you keep the promise with reminders, real-time
+recommendations in the chat based on the promise itself (recipes for "make a sandwich", places
+for "plan a trip to Hawaii", gift ideas for "get a soccer gift") and, for money, a Venmo payment
+that Peri fills in and you authorize in the Venmo app.
 
 Built at VexoHacks (Y Combinator, San Francisco), November 2026.
 
