@@ -5,6 +5,7 @@ word with a speaker number (0, 1, 2...). This subclass keeps those words and gro
 into turns: consecutive words by the same speaker.
 """
 import sys
+import time
 
 import config
 
@@ -16,6 +17,18 @@ class DiarizedSpeech(speech.DeepgramSpeech):
     def __init__(self, **options):
         super().__init__(diarize="true", **options)
         self.words = []                       # [{"speaker": 0, "word": "Hi,", "start": 0.4, "end": 0.6}]
+        self.last_word_at = None              # computer clock when the last word arrived
+        self.started_wall = None              # computer clock when the stream opened
+
+    def start(self, on_text=None):
+        super().start(on_text)
+        self.started_wall = time.time()
+        return self
+
+    @property
+    def closed(self):
+        """True once Deepgram has hung up (an error, or the network dropped)."""
+        return self._done.is_set()
 
     def _message(self, message):
         if message.get("type") == "Results" and message.get("is_final"):
@@ -27,6 +40,7 @@ class DiarizedSpeech(speech.DeepgramSpeech):
                     "start": float(w.get("start", 0.0)),
                     "end": float(w.get("end", 0.0)),
                 })
+                self.last_word_at = time.time()
         super()._message(message)             # keeps the kit's live text printing
 
 
