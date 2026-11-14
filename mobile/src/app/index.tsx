@@ -75,7 +75,7 @@ export default function Promises() {
             </View>
             <View style={{ flex: 1 }}>
               <T w="extrabold" style={{ fontSize: 14 }}>Connect your contacts</T>
-              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>So you can tell Sendly who each voice belongs to</T>
+              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>So you can tell Peri who each voice belongs to</T>
             </View>
             <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
           </Pressable>

@@ -1,4 +1,4 @@
-// Real data for the Sendly phone app, built from what the band listener saved:
+// Real data for the Peri phone app, built from what the band listener saved:
 // data/promises.json (promises you made) and data/interactions.json (conversations, voices).
 import { promises as fs } from "fs";
 import path from "path";

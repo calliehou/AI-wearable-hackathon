@@ -1,4 +1,4 @@
-// Colours and type from the Sendly design canvas.
+// Colours and type from the Peri design canvas.
 export const colors = {
   ink: "#111111",
   muted: "#6B6B76",

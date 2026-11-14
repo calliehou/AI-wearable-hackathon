@@ -1,4 +1,4 @@
-// Screen 9 of the Sendly app: "say a promise out loud". The phone sends the recording (or
+// Screen 9 of the Peri app: "say a promise out loud". The phone sends the recording (or
 // typed words); Deepgram turns speech into text; Claude reads who it's for, what, and when.
 // Keys stay on this computer (.env): the phone never sees them.
 import Anthropic from "@anthropic-ai/sdk";

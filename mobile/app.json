@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Sendly",
-    "slug": "sendly",
+    "name": "Peri",
+    "slug": "peri",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,18 +27,18 @@
       [
         "expo-contacts",
         {
-          "contactsPermission": "Sendly uses your contacts so you can choose who a to-do is with."
+          "contactsPermission": "Peri uses your contacts so you can choose who a to-do is with."
         }
       ],
       [
         "expo-audio",
         {
-          "microphonePermission": "Sendly listens when you tap the mic so you can add a promise by voice."
+          "microphonePermission": "Peri listens when you tap the mic so you can add a promise by voice."
         }
       ],
       "expo-notifications"
     ],
-    "scheme": "sendly",
+    "scheme": "peri",
     "experiments": {
       "typedRoutes": true
     }

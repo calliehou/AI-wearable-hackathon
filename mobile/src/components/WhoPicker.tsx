@@ -1,5 +1,5 @@
 // "Who is this?": pick the person a promise (or a voice) belongs to, from your phone's
-// contacts or the people Sendly already knows. Naming a voice teaches the band to recognise it.
+// contacts or the people Peri already knows. Naming a voice teaches the band to recognise it.
 import { useState } from "react";
 import { FlatList, Linking, Modal, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

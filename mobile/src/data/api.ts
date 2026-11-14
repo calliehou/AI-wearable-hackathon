@@ -39,25 +39,25 @@ export type ServerTodo = Omit<Todo, "personId"> & { personId: string | null; per
 export type UnknownVoice = { interaction_id: string; speaker: number; quote: string; title: string; heard: string; seconds: number };
 export type Snapshot = { people: ServerPerson[]; todos: ServerTodo[]; unknownVoices: UnknownVoice[] };
 
-export const fetchSnapshot = () => call<Snapshot>("/api/sendly", { cache: "no-store" } as RequestInit, 8000);
+export const fetchSnapshot = () => call<Snapshot>("/api/peri", { cache: "no-store" } as RequestInit, 8000);
 
 export const updatePromise = (id: string, change: { person_name?: string | null; status?: Todo["status"] }) =>
-  call(`/api/sendly/promises/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+  call(`/api/peri/promises/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
 
 export const nameVoice = (v: UnknownVoice, name: string) =>
-  call("/api/sendly/voices", {
+  call("/api/peri/voices", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ interaction_id: v.interaction_id, speaker: v.speaker, name }),
   });
 
 export const createPromise = (p: {
   title: string; quote: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null; person_name: string | null;
-}) => call("/api/sendly/promises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+}) => call("/api/peri/promises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
 
 // Spoken recap of the last week with someone (ElevenLabs on the Mac).
 export type Recap = { text: string; audio: string | null; note?: string };
 export async function fetchRecap(name: string): Promise<Recap> {
-  const r = await call<Recap>(`/api/sendly/recap?name=${encodeURIComponent(name)}`, undefined, 60000);
+  const r = await call<Recap>(`/api/peri/recap?name=${encodeURIComponent(name)}`, undefined, 60000);
   return { ...r, audio: r.audio ? `${base()}${r.audio}` : null };
 }
 

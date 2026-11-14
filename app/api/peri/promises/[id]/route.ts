@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updatePromise } from "@/lib/sendly";
+import { updatePromise } from "@/lib/peri";
 
 export const dynamic = "force-dynamic";
 

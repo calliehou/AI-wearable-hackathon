@@ -6,7 +6,7 @@ import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { recentWith } from "@/lib/sendly";
+import { recentWith } from "@/lib/peri";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
       if (!res.ok) return NextResponse.json({ text, audio: null, note: `ElevenLabs answered ${res.status}: the phone reads it instead.` });
       await fs.writeFile(mp3, Buffer.from(await res.arrayBuffer()));
     }
-    return NextResponse.json({ text, audio: `/api/sendly/recap/audio/${key}.mp3` });
+    return NextResponse.json({ text, audio: `/api/peri/recap/audio/${key}.mp3` });
   } catch (e) {
     if (e instanceof Anthropic.APIConnectionError) return NextResponse.json({ error: "This computer can't reach Claude." }, { status: 502 });
     return NextResponse.json({ error: (e as Error).message || "Recap failed." }, { status: 500 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { nameVoice } from "@/lib/sendly";
+import { nameVoice } from "@/lib/peri";
 
 export const dynamic = "force-dynamic";
 

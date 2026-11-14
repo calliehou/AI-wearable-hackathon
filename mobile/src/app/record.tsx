@@ -32,7 +32,7 @@ export default function Record() {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) {
-        setError("Sendly needs the microphone to hear your promise. You can type it instead.");
+        setError("Peri needs the microphone to hear your promise. You can type it instead.");
         setTyping(true);
         return;
       }

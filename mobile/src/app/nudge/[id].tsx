@@ -33,7 +33,7 @@ export default function Nudge() {
               <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.orangeDot, alignItems: "center", justifyContent: "center" }}>
                 <Icon name="wave" size={16} stroke={3} />
               </View>
-              <T style={{ flex: 1, fontSize: 12, color: colors.muted, letterSpacing: 0.4 }}>SENDLY · NORTHLINE BANK</T>
+              <T style={{ flex: 1, fontSize: 12, color: colors.muted, letterSpacing: 0.4 }}>PERI · NORTHLINE BANK</T>
               <T w="semibold" style={{ fontSize: 12, color: colors.muted }}>now</T>
             </View>
             <T w="extrabold" style={{ fontSize: 20, letterSpacing: -0.4, marginTop: 14 }}>Keep your promise to {first}</T>
