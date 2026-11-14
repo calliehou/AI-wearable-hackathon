@@ -11,12 +11,13 @@ import { Avatar, Header, Pill, T } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
 import { RenameSheet } from "../../components/RenameSheet";
 import { CirclePicker } from "../../components/CirclePicker";
+import { OrbitPicker } from "../../components/OrbitPicker";
 import { confirmDelete } from "../../components/confirmDelete";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
 import { colors, TYPE_TONE } from "../../theme";
 
-const ORBIT = ["", "Inner orbit ↑", "Middle orbit", "Drifting away"];
+const ORBIT = ["", "Inner orbit", "Middle orbit", "Outer orbit"];
 
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +34,7 @@ export default function PersonScreen() {
   const [picking, setPicking] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [circling, setCircling] = useState(false);
+  const [orbiting, setOrbiting] = useState(false);
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
   const name = p?.name;
@@ -97,7 +99,7 @@ export default function PersonScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 }}>
             {p.circles.map((c) => <Pill key={c} label={c} bg={s.circleColor(c) ?? colors.card} onPress={() => setCircling(true)} />)}
             <Pill label={p.circles.length ? "Circles" : "Add to a circle"} dashed onPress={() => setCircling(true)} />
-            <Pill label={ORBIT[p.ring]} bg={p.ring === 1 ? "#FFF1E8" : colors.card} />
+            <Pill label={`${ORBIT[p.ring]}${p.ring === 1 ? " ↑" : ""} ▾`} bg={p.ring === 1 ? "#FFF1E8" : colors.card} onPress={() => setOrbiting(true)} />
           </View>
         </View>
 
@@ -201,6 +203,7 @@ export default function PersonScreen() {
         }} />
 
       <CirclePicker person={p} visible={circling} onClose={() => setCircling(false)} />
+      <OrbitPicker person={p} visible={orbiting} onClose={() => setOrbiting(false)} />
 
       <RenameSheet key={`rename-${renaming}`} visible={renaming} name={p.name} onClose={() => setRenaming(false)}
         onSave={async (to) => { const nid = await s.renamePerson(p.name, to); router.replace({ pathname: "/person/[id]", params: { id: nid } }); }} />

@@ -11,6 +11,7 @@ const CIRCLES = path.join(DATA, "circles.json");
 const LIVE = path.join(DATA, "live.json");
 const CONTROL = path.join(DATA, "control.json");
 const PAYEES = path.join(DATA, "payees.json");
+const ORBITS = path.join(DATA, "orbits.json"); // { personId: 1 | 2 | 3 } chosen in the app
 
 export type Kind = "money" | "gift" | "task" | "plan" | "send" | "call" | "bring" | "meet" | "other";
 export type PromiseType = "Money" | "Gift" | "Task" | "Plan";
@@ -148,11 +149,12 @@ export async function setPayee(person: string, change: Payee) {
 export type UnknownVoice = { interaction_id: string; speaker: number; quote: string; title: string; heard: string; seconds: number };
 
 export async function snapshot() {
-  const [stored, interactions, circleFile, live, control, payees] = await Promise.all([
+  const [stored, interactions, circleFile, live, control, payees, orbits] = await Promise.all([
     readPromises(), realInteractions(), readCircles(),
     readJson<{ updated_at?: number; connected?: boolean; recording?: boolean } | null>(LIVE, null),
     readJson<{ paused?: boolean }>(CONTROL, {}),
     readPayees(),
+    readJson<Record<string, 1 | 2 | 3>>(ORBITS, {}),
   ]);
   type P = { id: string; name: string; lastAt: string; talks30: number; talks14: number; moments: number };
   const people = new Map<string, P>();
@@ -221,12 +223,14 @@ export async function snapshot() {
     const kept = todos.filter((t) => t.personId === p.id && t.status === "done").length;
     const daysQuiet = (now - new Date(p.lastAt).getTime()) / 86400000;
     // Orbit: 1 = inner (open promises or lots of talk), 2 = middle, 3 = outer / drifting.
-    const ring = open > 0 || p.talks14 >= 3 ? 1 : daysQuiet <= 14 ? 2 : 3;
+    const autoRing = open > 0 || p.talks14 >= 3 ? 1 : daysQuiet <= 14 ? 2 : 3;
+    const chosen = orbits[p.id];
+    const ring = chosen ?? autoRing;
     return {
       id: p.id, name: p.name, lastAt: p.lastAt,
       lastHeard: p.moments ? `Heard ${ago(p.lastAt)}` : "Not heard yet",
       lastTalk: p.moments ? short(p.lastAt) : "—",
-      moments: p.talks30, open, kept, ring,
+      moments: p.talks30, open, kept, ring, ringChosen: chosen !== undefined,
       drifting: p.moments > 0 && daysQuiet > 14,
       quietFor: p.moments ? short(p.lastAt) : null,
       circles: circleFile.members[p.id] ?? [],
@@ -397,6 +401,13 @@ export async function renamePersonEverywhere(from: string, to: string) {
     await writeJson(PAYEES, payees);
   }
 
+  const orbits = await readJson<Record<string, 1 | 2 | 3>>(ORBITS, {});
+  if (orbits[oldId] !== undefined && newId !== oldId) {
+    orbits[newId] = orbits[oldId];
+    delete orbits[oldId];
+    await writeJson(ORBITS, orbits);
+  }
+
   const VOICES = path.join(DATA, "voiceprints.json");
   const voices = await readJson<Record<string, number[][]>>(VOICES, {});
   const key = Object.keys(voices).find((k) => personId(k) === oldId);
@@ -406,4 +417,15 @@ export async function renamePersonEverywhere(from: string, to: string) {
     await writeJson(VOICES, voices);
   }
   return { id: newId, name, changes };
+}
+
+
+// Choose someone's orbit (1 inner, 2 middle, 3 outer), or null to let Peri decide again.
+export async function setOrbit(person: string, ring: 1 | 2 | 3 | null) {
+  const all = await readJson<Record<string, 1 | 2 | 3>>(ORBITS, {});
+  const id = personId(person);
+  if (ring === null) delete all[id];
+  else all[id] = ring;
+  await writeJson(ORBITS, all);
+  return { id, ring };
 }

@@ -38,6 +38,7 @@ type Store = {
   pauseBand: (paused: boolean) => Promise<void>;
   setPayee: (person: string, change: Payee) => Promise<void>;
   renamePerson: (from: string, to: string) => Promise<string>; // returns the new person id
+  setOrbit: (person: string, ring: 1 | 2 | 3 | null) => Promise<void>;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -224,6 +225,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const r = await api.renamePerson(from, to);
         await refresh();
         return r.id;
+      },
+      setOrbit: (personName, ring) => {
+        const id = slug(personName);
+        if (ring !== null) patchLocal((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, ring, ringChosen: true } : p)) }));
+        return thenRefresh(api.setOrbit(personName, ring));
       },
       pauseBand: (paused) => {
         patchLocal((s) => ({ ...s, band: { ...s.band, paused } }));

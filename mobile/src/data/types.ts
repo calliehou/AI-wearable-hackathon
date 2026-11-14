@@ -14,6 +14,7 @@ export type Person = {
   open: number;
   kept: number;
   ring: 1 | 2 | 3; // orbit: 1 inner, 2 middle, 3 outer / drifting
+  ringChosen: boolean; // true when you picked the orbit yourself
   drifting: boolean;
   quietFor: string | null;
   circles: string[];
