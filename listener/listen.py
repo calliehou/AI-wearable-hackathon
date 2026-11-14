@@ -41,7 +41,7 @@ def log(text):
     print("[%s] %s" % (time.strftime("%H:%M:%S"), text), flush=True)
 
 
-def finish(started_at, ended_at, turns, source, tracker=None, prints=None):
+def finish(started_at, ended_at, turns, source, tracker=None, prints=None, loudest_vid=None):
     """Claude reads the conversation; the result is saved. Runs on a background thread.
     tracker: who each voice is (by voiceprint). Claude gets it as a hint; names Claude finds
     for unnamed voices are kept for the rest of the stream. prints: voice id -> voiceprint,
@@ -49,8 +49,33 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None):
     if not turns:
         return
     with save_lock:
+        # 1. Check every voice against the contact memory (saved voices of named people).
+        talk = {}
+        for t in turns:
+            talk[t["speaker"]] = talk.get(t["speaker"], 0.0) + (t["end"] - t["start"])
+        memory = voiceprints.load_people()
+        checks = {vid: voiceprints.verify((prints or {}).get(vid), secs, memory) for vid, secs in talk.items()}
+        hints = tracker.snapshot() if tracker else {}
+        for vid, chk in checks.items():
+            had = hints.get(vid, {}).get("name")
+            if (prints or {}).get(vid) is None:
+                continue                                   # too short to check: keep what the stream said
+            loudest = vid == loudest_vid
+            if chk["verdict"] == "match" or (chk["verdict"] == "weak" and had == chk["name"]):
+                name = chk["name"]
+            elif loudest and (chk["name"] in (None, config.WEARER) or chk["verdict"] == "none"):
+                name = config.WEARER                       # the loudest voice is the wearer's, unless it is clearly someone else
+                chk["verdict"], chk["how"] = "loudest", "loudest voice (the band is on your wrist)"
+            else:
+                name = None                                # memory doesn't back that name up: leave it open
+            if name != had:
+                log("Voice %d: %s -> %s (memory: %s %.2f, next %s %.2f)" % (
+                    vid + 1, had or "unknown", name or "unknown", chk["name"], chk["score"], chk["runner_up"], chk["runner_up_score"]))
+            hints[vid] = {"name": name, "is_wearer": bool(name and name.lower() == config.WEARER.lower())
+                          or (name is None and hints.get(vid, {}).get("is_wearer", False) and not had)}
+            if tracker and name and name != had:
+                tracker.name(vid, name, learn=False)       # fix the stream for later conversations
         try:
-            hints = tracker.snapshot() if tracker else {}
             reading = summarize.read_conversation(turns, store.known_people(), hints)
             if tracker:
                 for p in reading["people"]:
@@ -72,7 +97,21 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None):
         for p in reading["people"]:
             vec = (prints or {}).get(p["speaker"])
             p["voiceprint"] = [round(float(x), 5) for x in vec] if vec is not None else None
+            chk = checks.get(p["speaker"])
+            if chk and vec is not None:
+                p["match"] = dict(chk, seconds=round(talk.get(p["speaker"], 0), 1))
+                if chk.get("how") and p["name"] == config.WEARER:
+                    p["evidence"] = "You: %s." % chk["how"]
+                elif p["name"] and chk["name"] == p["name"] and chk["verdict"] != "none":
+                    p["evidence"] = "Recognised by voice: %.2f match%s." % (
+                        chk["score"], " (next: %s %.2f)" % (chk["runner_up"], chk["runner_up_score"]) if chk["runner_up"] else "")
         item = store.save(started_at, ended_at, turns, reading, source)
+        # 2. Contact memory grows: a clear match adds this conversation's sample to that person.
+        for p in item["people"]:
+            chk, vec = checks.get(p["speaker"]), (prints or {}).get(p["speaker"])
+            if chk and vec is not None and p["name"] == chk["name"] and voiceprints.should_learn(chk, talk.get(p["speaker"], 0)):
+                voiceprints.remember(p["name"], [vec])
+                log("Learned more of %s's voice (%.2f match)." % (p["name"], chk["score"]))
         for pr in store.save_promises(item, reading.get("promises", [])):
             log("New promise: %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
@@ -179,8 +218,9 @@ class Recorder:
         if pending:
             started_at, ended_at, turns = cut(pending, self.ears.started_wall)
             prints = self.tracker.voiceprints_for(first, last)
+            loudest_vid = self.tracker.loudest_for(first, last)
             worker = threading.Thread(target=finish, args=(started_at, ended_at, turns, self.source,
-                                                           self.tracker, prints), daemon=True)
+                                                           self.tracker, prints, loudest_vid), daemon=True)
             self.last_saved_at = time.time()
             workers.append(worker)
             worker.start()

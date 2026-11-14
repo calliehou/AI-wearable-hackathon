@@ -182,7 +182,7 @@ class VoiceTracker:
             # 1. Merge real voices that sound alike (two named people are never merged).
             groups = [[vid] for vid in big]
             while True:
-                best, pair = vp.MATCH, None
+                best, pair = vp.MERGE, None
                 for x in range(len(groups)):
                     for y in range(x + 1, len(groups)):
                         if sum(1 for g in groups[x] + groups[y] if g in named) > 1:
@@ -312,6 +312,22 @@ class VoiceTracker:
 
     def _wearer_named(self):
         return any(v["is_wearer"] for v in self.voices.values())
+
+    def loudest_for(self, first, last, apart=3.0):
+        """The voice that is clearly loudest over words first..last (the wearer's, since the
+        band is on their wrist), or None if no voice stands out by `apart` dB."""
+        with self.lock:
+            lv = {}
+            for i, j, vid, _vec, db, dur in self.segments:
+                if i >= first and j <= last and db is not None:
+                    a, w = lv.get(vid, (0.0, 0.0))
+                    lv[vid] = (a + db * dur, w + dur)
+        avg = sorted(((a / w, v) for v, (a, w) in lv.items() if w > 0), reverse=True)
+        if not avg:
+            return None
+        if len(avg) == 1 or avg[0][0] - avg[1][0] >= apart:
+            return avg[0][1]
+        return None
 
     def voiceprints_for(self, first, last):
         """Mean voiceprint of each voice over words first..last (for the saved interaction)."""

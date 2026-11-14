@@ -17,6 +17,13 @@ export default async function Home() {
     <main className="mx-auto max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Recent interactions</h1>
+        <div className="flex gap-2">
+        <Link
+          href="/voices"
+          className="inline-flex min-h-11 items-center rounded-lg border border-line bg-panel px-4 text-sm font-medium"
+        >
+          Voices
+        </Link>
         <Link
           href="/live"
           className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-panel px-4 text-sm font-medium"
@@ -24,6 +31,7 @@ export default async function Home() {
           <span className="h-2.5 w-2.5 rounded-full bg-[#d9534f]" aria-hidden />
           Live
         </Link>
+        </div>
       </div>
       <p className="mt-1 text-sm text-muted">
         The band records non-stop. Each conversation appears here after a minute of silence.

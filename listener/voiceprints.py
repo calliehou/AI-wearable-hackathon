@@ -24,7 +24,8 @@ MIN_SECONDS = 2.0              # a stretch this long may start a new voice
 SHORT_SECONDS = 1.0            # stretches from this long are matched to a known voice (never start one)
 # Through the band's mic the same person scores ~0.35-0.6 and stretches under 2 s are noise
 # (measured on our own recordings, 14 Nov 2026); clean audio scores ~0.9.
-MATCH = 0.35                   # similarity to a voice's average needed to say "same person"
+MATCH = 0.40                   # similarity to a voice's average needed to say "same person"
+MERGE = 0.45                   # two voices in one conversation are merged only above this (Mapa vs Callie: 0.34)
 MATCH_NAMED = 0.40             # ...to a named person's saved voice
 MARGIN = 0.05                  # and it must beat the second-best voice by this much
 SUBSTANTIAL = 4.0              # seconds of speech before a voice counts as its own person
@@ -127,3 +128,45 @@ def centroid(vectors):
         return None
     c = np.mean(np.stack(vectors), axis=0)
     return c / (np.linalg.norm(c) + 1e-9)
+
+
+# ---- contact memory: check names against saved voices, and learn from clear matches
+
+VERIFY = 0.40                  # a name stays only if the voice matches that person's memory this well
+LEARN = 0.55                   # a clear match (and a lead of LEARN_MARGIN) adds the sample to memory
+LEARN_MARGIN = 0.10
+VERIFY_SECONDS = 3.0           # less speech than this is too little to check
+
+
+def person_scores(vec, people=None):
+    """{name: similarity of vec to that person's saved voice}. Each person's memory is
+    compared as an average and as its closest sample; the better of the two counts."""
+    people = load_people() if people is None else people
+    out = {}
+    for name, vecs in people.items():
+        c = centroid(vecs)
+        best_one = max(similarity(vec, v) for v in vecs)
+        out[name] = max(similarity(vec, c), best_one - 0.05)
+    return out
+
+
+def verify(vec, seconds, people=None):
+    """Who this voice is, according to the contact memory.
+    Returns {"name", "score", "runner_up", "runner_up_score", "verdict"} where verdict is
+    "match" (name is reliable), "weak" (too little speech or too close to call) or "none"."""
+    scores = person_scores(vec, people) if vec is not None else {}
+    ranked = sorted(scores.items(), key=lambda kv: -kv[1])
+    best, best_s = (ranked[0] if ranked else (None, 0.0))
+    second, second_s = (ranked[1] if len(ranked) > 1 else (None, 0.0))
+    if best is None or best_s < VERIFY:
+        verdict, name = "none", None
+    elif seconds < VERIFY_SECONDS or best_s - second_s < MARGIN:
+        verdict, name = "weak", best
+    else:
+        verdict, name = "match", best
+    return {"name": name, "score": round(best_s, 2), "runner_up": second, "runner_up_score": round(second_s, 2), "verdict": verdict}
+
+
+def should_learn(result, seconds):
+    return (result["verdict"] == "match" and result["score"] >= LEARN
+            and result["score"] - result["runner_up_score"] >= LEARN_MARGIN and seconds >= 4.0)
