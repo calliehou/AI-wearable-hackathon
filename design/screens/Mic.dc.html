@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mendly · Tell a promise</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+.bar{transform-origin:center;animation:sb 1s ease-in-out infinite}
+@keyframes sb{0%,100%{transform:scaleY(0.35)}50%{transform:scaleY(1)}}
+@keyframes ring{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.7);opacity:0}}
+.ring{animation:ring 1.6s ease-out infinite}
+@media (prefers-reduced-motion: reduce){.bar,.ring{animation:none}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; background: #F3F3F5; overflow: hidden; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #111111">
+
+<div style="position: absolute; left: 21px; top: 40px; width: 344px; height: 344px; border-radius: 172px; border: 1.5px dashed #D4D4DC"></div>
+<div style="position: absolute; left: 71px; top: 90px; width: 244px; height: 244px; border-radius: 122px; border: 1.5px solid #E1E1E7"></div>
+<div style="position: absolute; left: 163px; top: 180px; width: 60px; height: 60px; border-radius: 30px; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800">You</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 560px; background: #FFFFFF; border-radius: 32px 32px 0 0; box-shadow: 0 -10px 30px rgba(17,17,17,0.08); padding: 12px 20px 0; box-sizing: border-box">
+<div style="width: 40px; height: 5px; border-radius: 3px; background: #DADAE0; margin: 0 auto 16px"></div>
+<div style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px">{{ title }}</div>
+
+<div style="margin-top: 12px; padding: 14px 16px; border-radius: 18px; background: #FFF1E8; font-size: 15px; font-weight: 600; line-height: 1.45">"Remind me to bring Leo his charger tomorrow, and I owe Mom $40 for groceries."</div>
+
+<sc-if value="{{ listening }}" hint-placeholder-val="{{ false }}">
+<div aria-hidden="true" style="display: flex; align-items: center; justify-content: center; gap: 4px; height: 120px">
+<span class="bar" style="width: 5px; height: 30px; border-radius: 3px; background: #111111"></span>
+<span class="bar" style="width: 5px; height: 56px; border-radius: 3px; background: #111111; animation-delay: -0.2s"></span>
+<span class="bar" style="width: 5px; height: 80px; border-radius: 3px; background: #111111; animation-delay: -0.4s"></span>
+<span class="bar" style="width: 5px; height: 44px; border-radius: 3px; background: #111111; animation-delay: -0.6s"></span>
+<span class="bar" style="width: 5px; height: 70px; border-radius: 3px; background: #111111; animation-delay: -0.1s"></span>
+<span class="bar" style="width: 5px; height: 36px; border-radius: 3px; background: #111111; animation-delay: -0.3s"></span>
+<span class="bar" style="width: 5px; height: 64px; border-radius: 3px; background: #111111; animation-delay: -0.5s"></span>
+<span class="bar" style="width: 5px; height: 28px; border-radius: 3px; background: #111111; animation-delay: -0.7s"></span>
+</div>
+</sc-if>
+
+<sc-if value="{{ done }}" hint-placeholder-val="{{ true }}">
+<div style="font-size: 13px; font-weight: 700; color: #6B6B76; margin-top: 16px">Sorted into 2 promises</div>
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px">
+<div style="display: flex; align-items: center; gap: 12px; height: 66px; padding: 0 14px; border-radius: 20px; border: 1.5px solid #EFEFF2">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #CDEBFB; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></span>
+<span style="flex: 1"><span style="display: block; font-size: 15px; font-weight: 800">Bring Leo his charger</span><span style="display: block; font-size: 12px; font-weight: 500; color: #6B6B76">Task · School · tomorrow</span></span>
+<span style="width: 32px; height: 32px; border-radius: 16px; background: #E3D9FF; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">L</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; height: 66px; padding: 0 14px; border-radius: 20px; border: 1.5px solid #EFEFF2">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #FFD9C9; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; flex-shrink: 0">$</span>
+<span style="flex: 1"><span style="display: block; font-size: 15px; font-weight: 800">Pay Mom back $40</span><span style="display: block; font-size: 12px; font-weight: 500; color: #6B6B76">Money · Family · you owe</span></span>
+<span style="width: 32px; height: 32px; border-radius: 16px; background: #CDEBD6; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">M</span>
+</div>
+</div>
+<div style="display: flex; gap: 8px; margin-top: 14px">
+<a href="Main.dc.html" style="flex: 1; height: 48px; border-radius: 24px; background: #111111; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">Save both</a>
+<a href="Rhythm.dc.html" style="height: 48px; padding: 0 18px; border-radius: 24px; background: #F3F3F5; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">Adjust with Peri</a>
+</div>
+</sc-if>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 34px; display: flex; flex-direction: column; align-items: center; gap: 8px">
+<div style="position: relative; width: 76px; height: 76px">
+<sc-if value="{{ listening }}" hint-placeholder-val="{{ false }}">
+<span class="ring" style="position: absolute; inset: 0; border-radius: 38px; background: #F26A3D"></span>
+</sc-if>
+<button onPointerDown="{{ down }}" onPointerUp="{{ up }}" onPointerLeave="{{ up }}" aria-label="Hold to talk" aria-pressed="{{ pressed }}" style="{{ micStyle }}"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+</div>
+<span style="font-size: 12px; font-weight: 700; color: #6B6B76">{{ hint }}</span>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const listening = !!(this.state && this.state.listening);
+return {
+listening: listening,
+done: !listening,
+pressed: listening ? 'true' : 'false',
+title: listening ? 'Listening…' : 'Got it',
+hint: listening ? 'Release when you are done' : 'Hold to tell Peri a promise',
+micStyle: 'position: relative; width: 76px; height: 76px; border-radius: 38px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; touch-action: none; background: ' + (listening ? '#F26A3D' : '#111111'),
+down: () => this.setState({ listening: true }),
+up: () => { if (this.state && this.state.listening) this.setState({ listening: false }); }
+};
+}
+}
+</script>
+</body>
+</html>

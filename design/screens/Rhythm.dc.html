@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Peri · Ask Peri</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+.recs::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; background: #FFFFFF; overflow: hidden; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #111111">
+
+<div style="position: absolute; top: 56px; left: 20px; right: 20px; display: flex; align-items: center; gap: 10px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #111111; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="50" cy="50" rx="38" ry="16" transform="rotate(-28 50 50)" fill="none" stroke="#FFFFFF" stroke-width="6"/><circle cx="50" cy="50" r="14" fill="#FFFFFF"/><circle cx="70.9" cy="27.3" r="8" fill="#F26A3D" stroke="#111111" stroke-width="3"/></svg></span>
+<span style="font-size: 30px; font-weight: 800; letter-spacing: -1px">Ask Peri</span>
+</div>
+
+<div class="recs" style="position: absolute; top: 116px; left: 0; right: 0; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0 20px; scrollbar-width: none">
+<sc-for list="{{ recs }}" as="r" hint-placeholder-count="3">
+<div style="{{ r.card }}">
+<div style="display: flex; gap: 10px; align-items: center">
+<span style="{{ r.avatar }}">{{ r.initial }}</span>
+<span style="flex: 1"><span style="display: block; font-size: 15px; font-weight: 800">{{ r.title }}</span><span style="display: block; font-size: 12px; font-weight: 500; color: #3A3A44; margin-top: 2px">{{ r.sub }}</span></span>
+</div>
+<div style="display: flex; gap: 8px; margin-top: 12px">
+<button onClick="{{ r.act }}" style="flex: 1; height: 40px; border-radius: 20px; border: none; background: #111111; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">{{ r.cta }}</button>
+<button style="height: 40px; padding: 0 14px; border-radius: 20px; border: none; background: #FFFFFF; color: #111111; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Not now</button>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="position: absolute; top: 274px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px"><span style="width: 18px; height: 6px; border-radius: 3px; background: #111111"></span><span style="width: 6px; height: 6px; border-radius: 3px; background: #D4D4DC"></span><span style="width: 6px; height: 6px; border-radius: 3px; background: #D4D4DC"></span></div>
+
+<div style="position: absolute; top: 296px; left: 16px; right: 16px; bottom: 166px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 6px">
+<div style="align-self: center; font-size: 11px; font-weight: 700; color: #6B6B76">TODAY · FROM YOUR VOICE NOTE</div>
+
+<div style="align-self: flex-start; max-width: 300px; padding: 12px 14px; border-radius: 20px 20px 20px 6px; background: #F3F3F5">
+<div style="font-size: 14px; font-weight: 600; line-height: 1.4">I saved 2 promises. Anything to fix?</div>
+<div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; background: #FFFFFF"><span style="width: 26px; height: 26px; border-radius: 8px; background: #CDEBFB; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></span><span style="flex: 1; font-size: 13px; font-weight: 700">Bring Leo his charger</span><span style="font-size: 12px; font-weight: 800">{{ leoDay }}</span></div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; background: #FFFFFF"><span style="width: 26px; height: 26px; border-radius: 8px; background: #FFD9C9; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">$</span><span style="flex: 1; font-size: 13px; font-weight: 700">Pay Mom back $40</span><span style="font-size: 12px; font-weight: 800">Sun</span></div>
+</div>
+</div>
+
+<div style="align-self: flex-end; max-width: 260px; padding: 12px 14px; border-radius: 20px 20px 6px 20px; background: #111111; color: #FFFFFF; font-size: 14px; font-weight: 600; line-height: 1.4">Make Leo's due Thursday.</div>
+
+<div style="align-self: flex-start; max-width: 300px; padding: 12px 14px; border-radius: 20px 20px 20px 6px; background: #F3F3F5; font-size: 14px; font-weight: 600; line-height: 1.4">Done, it's now due Thursday. Want a buzz on your band Wednesday night?</div>
+
+<sc-if value="{{ answered }}" hint-placeholder-val="{{ false }}">
+<div style="align-self: flex-end; max-width: 260px; padding: 12px 14px; border-radius: 20px 20px 6px 20px; background: #111111; color: #FFFFFF; font-size: 14px; font-weight: 600">{{ answer }}</div>
+<div style="align-self: flex-start; max-width: 300px; padding: 12px 14px; border-radius: 20px 20px 20px 6px; background: #F3F3F5; font-size: 14px; font-weight: 600; line-height: 1.4">{{ reply }}</div>
+</sc-if>
+<sc-if value="{{ asking }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px">
+<button onClick="{{ yes }}" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1.5px solid #111111; background: #FFFFFF; font-family: inherit; color: #111111; font-size: 13px; font-weight: 700; cursor: pointer">Yes, buzz me</button>
+<button onClick="{{ no }}" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1.5px solid #E4E4EA; background: #FFFFFF; font-family: inherit; color: #111111; font-size: 13px; font-weight: 700; cursor: pointer">No thanks</button>
+</div>
+</sc-if>
+</div>
+
+<div style="position: absolute; left: 16px; right: 16px; bottom: 108px; height: 50px; border-radius: 25px; background: #F3F3F5; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 16px">
+<label for="ask-input" style="position: absolute; left: -9999px">Message Peri</label>
+<input id="ask-input" placeholder="Ask Peri or fix a promise…" style="flex: 1; border: none; background: transparent; font-family: inherit; font-size: 14px; font-weight: 500; color: #111111; outline: none">
+<a href="Mic.dc.html" aria-label="Talk to Peri" style="width: 40px; height: 40px; border-radius: 20px; background: #111111; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></a>
+</div>
+
+<div style="position: absolute; left: 32px; right: 32px; bottom: 28px; height: 68px; border-radius: 34px; background: #111111; box-shadow: 0 10px 28px rgba(17,17,17,0.3); display: flex; align-items: center; justify-content: space-around; padding: 0 6px">
+<a href="Main.dc.html" aria-label="My orbit" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9A9AA5" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-25 12 12)"/></svg></a>
+<a href="People.dc.html" aria-label="Contacts" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9A9AA5" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></svg></a>
+<a href="Mic.dc.html" aria-label="Hold to tell Peri a promise" style="width: 58px; height: 58px; border-radius: 29px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 5px rgba(255,255,255,0.14)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></a>
+<a href="Rhythm.dc.html" aria-label="Ask Peri" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M9 10.5h.01M12 10.5h.01M15 10.5h.01"/></svg></a>
+<a href="Band.dc.html" aria-label="Vexo band" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9A9AA5" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="3"/><path d="M8 9V5h8v4M8 15v4h8v-4"/></svg></a>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const card = (bg) => 'flex-shrink: 0; width: 300px; scroll-snap-align: center; box-sizing: border-box; padding: 14px 16px; border-radius: 24px; background: ' + bg;
+const av = (bg, faded) => 'width: 44px; height: 44px; border-radius: 22px; background: ' + bg + '; border: 3px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; flex-shrink: 0' + (faded ? '; opacity: 0.75' : '');
+const recs = [
+{ initial: 'S', title: 'Sam is drifting out of orbit', sub: '3 weeks quiet · you both love climbing', cta: s.planned ? 'Saturday climb sent ✓' : 'Plan a climb Sat', card: card('#CDEBFB'), avatar: av('#FFE3B8', true), act: () => this.setState({ planned: true }) },
+{ initial: 'K', title: 'Kelly’s birthday is today', sub: 'She mentioned the new matcha place twice', cta: 'See gift ideas', card: card('#FBDDD9'), avatar: av('#FFD39A'), act: () => {} },
+{ initial: 'M', title: 'Call Mom before Sunday', sub: 'She wanted to tell you about the garden', cta: 'Remind me 6 PM', card: card('#E2F2E7'), avatar: av('#CDEBD6'), act: () => {} }
+];
+const answered = s.answer !== undefined;
+return {
+recs: recs,
+leoDay: 'Thu',
+answered: answered,
+asking: !answered,
+answer: s.answer === 'yes' ? 'Yes, buzz me' : 'No thanks',
+reply: s.answer === 'yes' ? 'Got it. One buzz Wednesday at 9 PM.' : 'Okay, it’ll just show up on your orbit Thursday.',
+yes: () => this.setState({ answer: 'yes' }),
+no: () => this.setState({ answer: 'no' })
+};
+}
+}
+</script>
+</body>
+</html>
