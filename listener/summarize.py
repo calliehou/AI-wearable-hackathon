@@ -32,6 +32,7 @@ SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
+                    "for_name": {"type": ["string", "null"]},
                     "to_speaker": {"type": ["integer", "null"]},
                     "title": {"type": "string"},
                     "quote": {"type": "string"},
@@ -41,7 +42,7 @@ SCHEMA = {
                     "due_detail": {"type": ["string", "null"]},
                     "confidence": {"type": "number"},
                 },
-                "required": ["to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "confidence"],
+                "required": ["for_name", "to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "confidence"],
                 "additionalProperties": False,
             },
         },

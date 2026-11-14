@@ -54,14 +54,28 @@ def save_promises(item, promises, min_confidence=0.6):
     The person is the name of the voice it was promised to, or None: the app then asks
     "Who is this?" and naming them there teaches the band that voice."""
     people = {p["speaker"]: p for p in item["people"]}
+    existing = {(x["interaction_id"], x["title"].lower()) for x in load_promises()}
     new = []
     for pr in promises:
         if pr.get("confidence", 0) < min_confidence:
             continue
+        if (item["id"], pr["title"].lower()) in existing:
+            continue                                   # already saved (e.g. a conversation re-read)
         to = pr.get("to_speaker")
-        person = people.get(to) if to is not None else None
-        if person and person.get("is_wearer"):
-            to, person = None, None                   # promised "to" the wearer: the target is unclear
+        speaker = people.get(to) if to is not None else None
+        if speaker and speaker.get("is_wearer"):
+            to, speaker = None, None                  # promised "to" the wearer: the target is unclear
+        named = (pr.get("for_name") or "").strip() or None
+        if named:
+            # The wearer said a name ("Mom", "Kelly"). Link to the voice only if it is that person.
+            if speaker and (speaker.get("name") or "").lower().split(" ")[0] == named.lower().split(" ")[0]:
+                person, source = speaker.get("name"), "voice"
+            else:
+                to, person, source = None, named, "named"   # the app asks to pick them from contacts
+        elif speaker:
+            person, source = speaker.get("name"), "voice" if speaker.get("name") else None
+        else:
+            person, source = None, None
         new.append({
             "id": uuid.uuid4().hex[:12],
             "interaction_id": item["id"],
@@ -74,7 +88,8 @@ def save_promises(item, promises, min_confidence=0.6):
             "due_detail": pr.get("due_detail"),
             "confidence": pr.get("confidence", 0.8),
             "speaker": to,                            # voice it was promised to, in that interaction
-            "person_name": person.get("name") if person else None,
+            "person_name": person,
+            "person_source": source,                  # "voice", "named" (said, not yet picked) or "picked"
             "status": "open",
         })
     if not new:

@@ -2,7 +2,7 @@
 // people, promises and your phone's contacts.
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Linking, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, typeIcon } from "../components/Icon";
@@ -24,7 +24,9 @@ export default function Contacts() {
     .sort((a, b) => (dueSoon(s, b) - dueSoon(s, a)) || b.open - a.open);
   const clear = s.people.filter((p) => p.open === 0 && matches(p));
   const unknownOpen = s.todos.filter((t) => t.status === "open" && !t.personId && (!q || t.title.toLowerCase().includes(q)));
-  const phoneOnly = q ? s.contacts.filter((c) => c.name.toLowerCase().includes(q) && !s.people.some((p) => p.name.toLowerCase() === c.name.toLowerCase())).slice(0, 8) : [];
+  const [shown, setShown] = useState(60);
+  const phone = s.contacts.filter((c) => !q || c.name.toLowerCase().includes(q) || (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "") || "~"));
+  const heardAs = (name: string) => s.people.find((p) => p.name.toLowerCase() === name.toLowerCase());
   const promisesCount = s.todos.filter((t) => t.status === "open").length;
 
   return (
@@ -64,7 +66,8 @@ export default function Contacts() {
                 <Avatar name={p.name} size={42} color={s.personColor(p)} badge={p.open} ring={urgent} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <T w="extrabold" style={{ fontSize: 15 }} numberOfLines={1}>{p.name}</T>
-                  <T w="medium" style={{ fontSize: 12, color: urgent ? colors.rust : colors.muted, marginTop: 2 }} numberOfLines={1}>
+                  <T w="medium" style={{ fontSize: 12, color: urgent || open.some((t) => t.personSource === "named") ? colors.rust : colors.muted, marginTop: 2 }} numberOfLines={1}>
+                    {open.some((t) => t.personSource === "named") ? "Pick from contacts · " : ""}
                     {[p.circles[0], first ? `${first.title.replace(p.name, "").trim()} ${first.dueLabel.toLowerCase()}` : null].filter(Boolean).join(" · ")}
                   </T>
                 </View>
@@ -112,19 +115,45 @@ export default function Contacts() {
           </View>
         )}
 
-        {phoneOnly.length > 0 && (
-          <>
-            <T w="extrabold" style={{ fontSize: 14, paddingHorizontal: 20, marginTop: 18 }}>From your phone</T>
-            <View style={{ paddingHorizontal: 20, marginTop: 6 }}>
-              {phoneOnly.map((c) => (
-                <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, height: 52, borderBottomWidth: 1.5, borderBottomColor: colors.card }}>
-                  <Avatar name={c.name} size={34} />
-                  <T w="extrabold" style={{ flex: 1, fontSize: 14 }}>{c.name}</T>
-                  <T w="medium" style={{ fontSize: 12, color: colors.muted }}>Not heard yet</T>
-                </View>
-              ))}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, marginTop: 22, marginBottom: 6 }}>
+          <T w="extrabold" style={{ fontSize: 14 }}>Phone contacts</T>
+          {s.contactsStatus === "granted" ? <T style={{ fontSize: 13, color: colors.muted }}>{phone.length}</T> : null}
+        </View>
+        {s.contactsStatus !== "granted" ? (
+          <Pressable accessibilityRole="button" onPress={() => (s.contactsStatus === "denied" ? Linking.openSettings() : s.askContacts())}
+            style={{ marginHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.card }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" }}>
+              <Icon name="contacts" size={20} color={colors.white} />
             </View>
-          </>
+            <View style={{ flex: 1 }}>
+              <T w="extrabold" style={{ fontSize: 14 }}>{s.contactsStatus === "denied" ? "Allow contacts in Settings" : "Show my phone contacts"}</T>
+              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>So you can pick who each promise is for</T>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={{ paddingHorizontal: 20 }}>
+            {phone.slice(0, shown).map((c) => {
+              const known = heardAs(c.name);
+              return (
+                <Pressable key={c.id} accessibilityRole="button" disabled={!known}
+                  onPress={() => known && router.push({ pathname: "/person/[id]", params: { id: known.id } })}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, borderBottomWidth: 1.5, borderBottomColor: colors.card }}>
+                  <Avatar name={c.name} size={36} color={known ? s.personColor(known) : undefined} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <T w="extrabold" style={{ fontSize: 15 }} numberOfLines={1}>{c.name}</T>
+                    {c.phone ? <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 1 }} numberOfLines={1}>{c.phone}</T> : null}
+                  </View>
+                  <T w="medium" style={{ fontSize: 12, color: known ? colors.ink : colors.muted }}>{known ? known.lastHeard : "Not heard yet"}</T>
+                </Pressable>
+              );
+            })}
+            {phone.length > shown && (
+              <Pressable accessibilityRole="button" onPress={() => setShown(shown + 100)} style={{ height: 48, alignItems: "center", justifyContent: "center" }}>
+                <T style={{ fontSize: 14, color: colors.soft }}>Show more ({phone.length - shown})</T>
+              </Pressable>
+            )}
+            {!phone.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, marginTop: 6 }}>{q ? "No contact matches that." : "No contacts on this phone."}</T>}
+          </View>
         )}
       </ScrollView>
       <BottomNav />

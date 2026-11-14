@@ -32,6 +32,7 @@ export type Todo = {
   type: PromiseType;
   personId: string | null; // null: the band didn't catch who it was. Pick them from contacts.
   personName: string | null;
+  personSource: "voice" | "named" | "picked" | null; // "named": you said the name; pick them from contacts
   amount?: number;
   note?: string;
   dueLabel: string; // "Tonight", "Mon"

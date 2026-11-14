@@ -10,11 +10,11 @@ import { Avatar, T } from "./ui";
 
 type Row = { key: string; name: string; sub?: string };
 
-export function WhoPicker({ visible, onClose, onPick, quote, title = "Who is this with?" }: {
-  visible: boolean; onClose: () => void; onPick: (name: string) => void; quote?: string; title?: string;
+export function WhoPicker({ visible, onClose, onPick, quote, title = "Who is this with?", initialQuery = "" }: {
+  visible: boolean; onClose: () => void; onPick: (name: string) => void; quote?: string; title?: string; initialQuery?: string;
 }) {
   const { people, contacts, contactsStatus, askContacts } = useStore();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const insets = useSafeAreaInsets();
   const q = query.trim().toLowerCase();
 

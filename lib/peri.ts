@@ -28,6 +28,7 @@ export type StoredPromise = {
   confidence: number;
   speaker: number | null;
   person_name: string | null;
+  person_source?: "voice" | "named" | "picked" | null; // "named": said aloud, not yet picked from contacts
   status: "open" | "done" | "dismissed";
   note?: string | null;
 };
@@ -202,6 +203,7 @@ export async function snapshot() {
       type: typeOf(p.kind),
       personId: p.person_name ? personId(p.person_name) : null,
       personName: p.person_name,
+      personSource: p.person_source ?? (p.person_name ? "voice" : null),
       amount: p.amount ?? undefined,
       note: p.note ?? undefined,
       dueLabel: p.due_label,
@@ -275,6 +277,7 @@ export async function updatePromise(id: string, change: {
   if (change.person_name !== undefined) {
     const name = change.person_name?.trim().slice(0, 60) || null;
     pr.person_name = name;
+    pr.person_source = name ? "picked" : null;
     if (pr.speaker !== null) {
       for (const other of items) if (other.interaction_id === pr.interaction_id && other.speaker === pr.speaker) other.person_name = name;
       await renamePerson(pr.interaction_id, pr.speaker, name).catch(() => undefined);

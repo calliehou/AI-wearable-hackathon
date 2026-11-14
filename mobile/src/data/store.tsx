@@ -67,7 +67,8 @@ async function announce(todo: Todo) {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: todo.personName ? `Promise heard · ${todo.personName}` : "Promise heard · who was it?",
+        title: todo.personSource === "named" && todo.personName ? `Promise heard · pick ${todo.personName} from contacts`
+          : todo.personName ? `Promise heard · ${todo.personName}` : "Promise heard · who was it?",
         body: `${todo.title} · ${todo.dueLabel}${todo.dueDetail ? ` ${todo.dueDetail}` : ""}\n“${todo.quote}”`,
         data: { todoId: todo.id },
         ...(Platform.OS === "android" ? { channelId: "promises" } : null),

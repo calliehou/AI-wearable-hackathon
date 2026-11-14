@@ -8,6 +8,7 @@ import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, View } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, Pill, T } from "../../components/ui";
+import { WhoPicker } from "../../components/WhoPicker";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
 import { colors, TYPE_TONE } from "../../theme";
@@ -26,6 +27,7 @@ export default function PersonScreen() {
   const [loadingRecap, setLoadingRecap] = useState(false);
   const [recapText, setRecapText] = useState("");
   const [note, setNote] = useState("");
+  const [picking, setPicking] = useState(false);
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
   const name = p?.name;
@@ -44,6 +46,7 @@ export default function PersonScreen() {
   if (!p) return <View style={{ flex: 1, backgroundColor: colors.white, paddingTop: insets.top }}><Header /></View>;
   const open = s.openFor(p.id);
   const first = p.name.split(" ")[0];
+  const named = s.todos.filter((t) => t.personId === p.id && t.personSource === "named" && t.status !== "dismissed");
 
   async function recap() {
     if (playing) { player.pause(); Speech.stop(); setPlaying(false); return; }
@@ -88,6 +91,18 @@ export default function PersonScreen() {
             <Pill label={ORBIT[p.ring]} bg={p.ring === 1 ? "#FFF1E8" : colors.card} />
           </View>
         </View>
+
+        {named.length > 0 && (
+          <Pressable accessibilityRole="button" onPress={() => setPicking(true)}
+            style={{ marginTop: 16, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: "#FFF1E8", borderWidth: 1.5, borderColor: "#F9C9A8" }}>
+            <Icon name="contacts" size={20} />
+            <View style={{ flex: 1 }}>
+              <T w="extrabold" style={{ fontSize: 14 }}>Which {p.name}? Pick from contacts</T>
+              <T w="medium" style={{ fontSize: 12, color: colors.soft, marginTop: 2 }}>You said “{p.name}”; choose the right contact for {named.length === 1 ? "this promise" : `these ${named.length} promises`}</T>
+            </View>
+            <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
+          </Pressable>
+        )}
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 20 }}>
           <Stat big={String(p.open)} small="open" />
@@ -166,6 +181,14 @@ export default function PersonScreen() {
           </View>
         )}
       </ScrollView>
+
+      <WhoPicker key={String(picking)} visible={picking} title={`Which ${p.name}?`} initialQuery={p.name}
+        onClose={() => setPicking(false)}
+        onPick={async (n) => {
+          for (const t of named) await s.setTodoPerson(t.id, { name: n });
+          setPicking(false);
+          router.back();
+        }} />
 
       <Modal visible={showLog} animationType="slide" transparent onRequestClose={() => setShowLog(false)}>
         <Pressable accessibilityLabel="Close" onPress={() => setShowLog(false)} style={{ flex: 1, backgroundColor: "rgba(17,17,17,0.35)" }} />

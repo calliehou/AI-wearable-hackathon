@@ -145,7 +145,10 @@ export default function MyOrbit() {
       </ScrollView>
       <BottomNav />
       <WhoPicker visible={!!voice} title="Whose voice is this?" quote={voice?.quote} onClose={() => setVoice(null)} onPick={(n) => voice && s.nameVoice(voice, n)} />
-      <WhoPicker visible={!!picking} quote={pickingTodo?.quote} onClose={() => setPicking(null)} onPick={(n) => picking && s.setTodoPerson(picking, { name: n })} />
+      <WhoPicker key={picking ?? "none"} visible={!!picking} quote={pickingTodo?.quote}
+        title={pickingTodo?.personSource === "named" ? `Which ${pickingTodo.personName}?` : undefined}
+        initialQuery={pickingTodo?.personSource === "named" ? pickingTodo.personName ?? "" : ""}
+        onClose={() => setPicking(null)} onPick={(n) => picking && s.setTodoPerson(picking, { name: n })} />
     </View>
   );
 }
@@ -174,7 +177,9 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 }}>
         <View style={{ flex: 1 }}>
           <T w="extrabold" style={{ fontSize: 17 }} numberOfLines={1}>{todo.title}</T>
-          {p ? (
+          {todo.personSource === "named" ? (
+            <Pressable accessibilityRole="button" onPress={onWho} hitSlop={8}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Pick {todo.personName} from contacts</T></Pressable>
+          ) : p ? (
             <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{todo.note ?? `to ${p.name}`}</T>
           ) : (
             <Pressable accessibilityRole="button" onPress={onWho} hitSlop={8}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Who is this? Tap to choose</T></Pressable>
@@ -205,7 +210,9 @@ function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
         <Avatar name={p?.name ?? null} unknown={!p} size={38} color={s.personColor(p)} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <T w="extrabold" style={{ fontSize: 15, textDecorationLine: done ? "line-through" : "none" }} numberOfLines={1}>{todo.title}</T>
-          {p ? (
+          {todo.personSource === "named" ? (
+            <Pressable accessibilityRole="button" onPress={onWho} hitSlop={6}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Pick {todo.personName} from contacts</T></Pressable>
+          ) : p ? (
             <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{[p.circles[0], todo.heardLabel].filter(Boolean).join(" · ")}</T>
           ) : (
             <Pressable accessibilityRole="button" onPress={onWho} hitSlop={6}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Who is this?</T></Pressable>

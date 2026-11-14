@@ -80,7 +80,11 @@ export default function PromiseHeard() {
           <Avatar name={p?.name ?? null} unknown={!p} size={44} color={s.personColor(p)} />
           <View style={{ flex: 1 }}>
             <T w="extrabold" style={{ fontSize: 16 }}>{p ? `To ${p.name}` : "Who is this? Tap to choose"}</T>
-            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{p ? [p.circles[0], t.title].filter(Boolean).join(" · ") : "From your contacts"}</T>
+            {t.personSource === "named" ? (
+              <T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>You said “{t.personName}” · tap to pick them from contacts</T>
+            ) : (
+              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{p ? [p.circles[0], t.title].filter(Boolean).join(" · ") : "From your contacts"}</T>
+            )}
           </View>
           <View style={{ alignItems: "flex-end" }}>
             {t.amount != null && <T w="extrabold" style={{ fontSize: 20 }}>{money(t.amount)}</T>}
@@ -104,7 +108,10 @@ export default function PromiseHeard() {
           { text: "Remove", style: "destructive", onPress: () => { s.setStatus(t.id, "dismissed"); router.back(); } },
         ])} />
       </ScrollView>
-      <WhoPicker visible={picking} quote={t.quote} onClose={() => setPicking(false)} onPick={(n) => s.setTodoPerson(t.id, { name: n })} />
+      <WhoPicker key={String(picking)} visible={picking} quote={t.quote}
+        title={t.personSource === "named" ? `Which ${t.personName}?` : undefined}
+        initialQuery={t.personSource === "named" ? t.personName ?? "" : ""}
+        onClose={() => setPicking(false)} onPick={(n) => s.setTodoPerson(t.id, { name: n })} />
     </View>
   );
 }
