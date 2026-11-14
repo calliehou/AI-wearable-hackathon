@@ -60,9 +60,10 @@ def read_conversation(turns, known_people):
     speakers = sorted({t["speaker"] for t in turns})
     known = ", ".join(known_people) if known_people else "(nobody yet)"
     user = (
+        "The wearer is: %s\n"
         "People the wearer has met before: %s\n"
         "Speakers in this conversation: %s\n\n"
-        "Conversation:\n%s" % (known, ", ".join(str(s) for s in speakers), transcript_text(turns))
+        "Conversation:\n%s" % (config.WEARER, known,", ".join(str(s) for s in speakers), transcript_text(turns))
     )
     client = anthropic.Anthropic()
     try:
@@ -100,5 +101,8 @@ def read_conversation(turns, known_people):
     for s in speakers:
         if s not in seen:
             people.append({"speaker": s, "name": None, "is_wearer": False, "evidence": "Not identified."})
+    for p in people:
+        if p["is_wearer"]:
+            p["name"] = config.WEARER     # the wearer's name is known; don't rely on it being said
     result["people"] = sorted(people, key=lambda p: p["speaker"])
     return result

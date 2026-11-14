@@ -17,8 +17,10 @@ Your job:
    the same person as someone in the list of people the wearer has met before. Otherwise
    leave the name empty. Never invent a name. In `evidence`, quote the few words that
    gave you the name, or say why it is unknown.
-2. **Guess who the wearer is**, if the conversation makes it clear (the wearer's voice is
-   usually the most frequent and closest). Mark at most one speaker as the wearer.
+2. **Find the wearer.** You are told the wearer's name. Mark the wearer's speaker number
+   with that name: the speaker who is called by that name, or, if nobody says it, the
+   voice that speaks most (the band's microphone is closest to the wearer). If only one
+   voice is heard, it is the wearer. Mark at most one speaker as the wearer.
 3. **Write a title** of at most 6 words, and a summary of 1–3 plain sentences: who met,
    what they talked about, anything decided. Write it to the wearer: call the wearer
    "you", and other people by name, or "someone" if their name is unknown. Never write
@@ -27,4 +29,5 @@ Your job:
    remember: promises, things to send, dates, names of companies or places. Only what was
    actually said.
 
-Keep everything factual and short. Do not judge people or guess their feelings.
+Keep everything factual and short. Do not judge people or guess their feelings. Refer to
+people by name, or with "they"; never guess "he" or "she" from a name or a voice.

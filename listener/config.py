@@ -2,6 +2,7 @@
 from pathlib import Path
 
 BAND = 24                         # our band: Vexo-HACK-24 (number on the band's bag)
+WEARER = "Mapa"                   # who wears the band; Claude names the wearer's voice with this
 
 ROOT = Path(__file__).resolve().parent.parent
 KIT = ROOT / "vexo-open-kit"      # local clone of github.com/VexoAI-Org/vexo-open-kit (gitignored)
