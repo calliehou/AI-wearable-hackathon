@@ -39,7 +39,7 @@ type Store = {
 };
 
 const Ctx = createContext<Store | null>(null);
-const POLL_MS = 4000;
+const POLL_MS = 3000;
 
 export function slug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person";

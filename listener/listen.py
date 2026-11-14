@@ -18,6 +18,7 @@ Options: --gap SECONDS (silence that ends a conversation), --max SECONDS (longes
 """
 import argparse
 import json
+import re
 import sys
 import threading
 import time
@@ -32,6 +33,10 @@ import voices
 
 sys.path.insert(0, str(config.KIT / "python"))
 from vexo_open.sync import Band, VexoError       # noqa: E402
+
+# Phrases that usually start a commitment: a sentence with one gets a quick check right away.
+PROMISE_HINT = re.compile(r"\b(i'?ll|i will|i'?m going to|i'?m gonna|i need to|i have to|i'?ve got to|i gotta|i owe|"
+                          r"i promise|remind me|let me send|i can send|i should (send|buy|call|pay|bring))\b", re.I)
 
 save_lock = threading.Lock()                     # one Claude reading / file write at a time
 workers = []                                     # Claude readings in progress
@@ -116,6 +121,21 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None, loude
             log("New promise: %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
         log("Saved: %s  [%s]" % (item["title"], names))
+
+
+def quick_save(lines):
+    """Background: save promises found in a few fresh lines (see Recorder.quick_check)."""
+    try:
+        found = summarize.quick_promises(lines, store.known_people())
+    except Exception as error:                          # the full reading later still catches them
+        log("Quick check skipped: %s" % getattr(error, "message", error))
+        return
+    if not found:
+        return
+    item = {"id": "live-%d" % int(time.time()), "started_at": store.now().isoformat(), "people": []}
+    with save_lock:
+        for pr in store.save_promises(item, found):
+            log("New promise (heard just now): %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
 
 
 def cut(words, wall_start):
@@ -253,6 +273,26 @@ class Recorder:
                                     "text": " ".join(w["word"] for w in interim)}
         write_live(state)
 
+    def quick_check(self):
+        """When a sentence with a promise-like phrase has just ended, ask Claude about the last
+        few lines right away, so the promise reaches the app in seconds, not after the silence gap."""
+        words = self.ears.words
+        start = getattr(self, "quick_upto", 0)
+        if start > len(words):
+            start = 0                                   # a new stream
+        new = words[start:]
+        if not new or time.time() - (self.ears.last_word_at or 0) < 1.2:
+            return                                      # still mid-sentence
+        self.quick_upto = len(words)
+        if not PROMISE_HINT.search(" ".join(w["word"] for w in new)):
+            return
+        window = words[max(self.done_upto, len(words) - 90):]
+        snap = self.tracker.snapshot()
+        _, _, turns = cut(window, self.ears.started_wall)
+        name = lambda v: (snap.get(v, {}).get("name") or "Speaker %d" % (v + 1)) if v >= 0 else "Someone"
+        lines = "\n".join("%s: %s" % (name(t["speaker"]), t["text"]) for t in turns)
+        threading.Thread(target=quick_save, args=(lines,), daemon=True).start()
+
     def check(self, tapped):
         """Called about twice a second: decide voices, take names typed on the Live page,
         end the conversation on silence, a tap or length."""
@@ -262,6 +302,7 @@ class Recorder:
             self.tracker.name(vid, name, learn=True)
         self.tracker.assign(self.ears.words, self.pcm_at)
         self.live()
+        self.quick_check()
         pending = self.ears.words[self.done_upto:]
         if not pending:
             return

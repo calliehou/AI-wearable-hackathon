@@ -18,7 +18,7 @@ MODEL = "claude-opus-5-5"
 MAX_SECONDS = 600                 # an interaction stops by itself after 10 minutes
 
 # Always-on: the microphone never turns off. The stream is cut into interactions by silence.
-SILENCE_GAP = 60                  # this many seconds with no words ends the current interaction
+SILENCE_GAP = 30                  # this many seconds with no words ends the current interaction
 MAX_INTERACTION = 15 * 60         # a non-stop conversation is still saved every 15 minutes
 
 # LED colours for each state, so the wearer knows what the band is doing.

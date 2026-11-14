@@ -137,3 +137,41 @@ def read_conversation(turns, known_people, voices=None):
             p["name"] = config.WEARER     # the wearer's name is known; don't rely on it being said
     result["people"] = sorted(people, key=lambda p: p["speaker"])
     return result
+
+
+# ---- quick check while people are still talking
+
+QUICK_SCHEMA = {
+    "type": "object",
+    "properties": {"promises": SCHEMA["properties"]["promises"]},
+    "required": ["promises"],
+    "additionalProperties": False,
+}
+
+QUICK_SYSTEM = """You see the last few lines of a conversation recorded by a wristband. Lines start
+with who spoke. The wearer is %s. List only commitments the wearer just made for another person
+(present or not): "I'll send you...", "I need to buy my mom a present", "I owe Leo $20".
+Follow the same field rules as always: for_name is the person as the wearer named them (or null
+if they said "you"), to_speaker is null here, a short title with the person, kind money/gift/task/plan/call,
+amount, due_label ("Today", "Tonight", "Tmrw", a weekday, "Next week" or "Soon"), due_detail,
+confidence 0-1. If nothing is a clear commitment, return an empty list."""
+
+
+def quick_promises(lines, known_people):
+    """Fast check of a few fresh lines for promises (returns the promises list)."""
+    load_env_file()
+    client = anthropic.Anthropic()
+    response = client.beta.messages.create(
+        model=config.MODEL,
+        max_tokens=4000,
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+        thinking={"type": "adaptive"},
+        output_config={"effort": "low", "format": {"type": "json_schema", "schema": QUICK_SCHEMA}},
+        system=QUICK_SYSTEM % config.WEARER,
+        messages=[{"role": "user", "content": "People the wearer knows: %s\n\n%s" % (", ".join(known_people) or "(none)", lines)}],
+    )
+    if response.stop_reason in ("refusal", "max_tokens"):
+        return []
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    return json.loads(text).get("promises", []) if text else []

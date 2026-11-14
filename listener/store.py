@@ -49,18 +49,47 @@ def load_promises():
     return json.loads(config.PROMISES_FILE.read_text(encoding="utf-8"))
 
 
+def _words(title):
+    return {w for w in "".join(c.lower() if c.isalnum() else " " for c in title).split() if len(w) > 2}
+
+
+def already_caught(pr, saved, minutes=30):
+    """True if the same promise was saved in the last half hour (the live quick check usually
+    catches it before the conversation ends): same person and kind, or a near-identical title."""
+    cutoff = (now().timestamp() - minutes * 60)
+    name = (pr.get("for_name") or "").lower()
+    new = _words(pr["title"])
+    for x in saved:
+        if x.get("status") == "dismissed":
+            continue
+        try:
+            at = datetime.fromisoformat(x["heard_at"]).timestamp()
+        except (KeyError, ValueError):
+            continue
+        if at < cutoff:
+            continue
+        old = _words(x["title"])
+        same_title = new and old and len(new & old) / max(len(new | old), 1) >= 0.6
+        same_target = name and (x.get("person_name") or "").lower() == name and x["kind"] == pr["kind"] \
+            and (x.get("amount") or None) == (pr.get("amount") or None)
+        if same_title or same_target:
+            return True
+    return False
+
+
 def save_promises(item, promises, min_confidence=0.6):
     """Promises the wearer made in one saved interaction -> data/promises.json (newest first).
     The person is the name of the voice it was promised to, or None: the app then asks
     "Who is this?" and naming them there teaches the band that voice."""
     people = {p["speaker"]: p for p in item["people"]}
-    existing = {(x["interaction_id"], x["title"].lower()) for x in load_promises()}
+    saved = load_promises()
+    existing = {(x["interaction_id"], x["title"].lower()) for x in saved}
     new = []
     for pr in promises:
         if pr.get("confidence", 0) < min_confidence:
             continue
-        if (item["id"], pr["title"].lower()) in existing:
-            continue                                   # already saved (e.g. a conversation re-read)
+        if (item["id"], pr["title"].lower()) in existing or already_caught(pr, saved):
+            continue                                   # already saved (re-read, or caught live a moment ago)
         to = pr.get("to_speaker")
         speaker = people.get(to) if to is not None else None
         if speaker and speaker.get("is_wearer"):
