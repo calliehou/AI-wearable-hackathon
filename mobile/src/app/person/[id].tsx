@@ -12,6 +12,8 @@ import { WhoPicker } from "../../components/WhoPicker";
 import { RenameSheet } from "../../components/RenameSheet";
 import { CirclePicker } from "../../components/CirclePicker";
 import { OrbitPicker } from "../../components/OrbitPicker";
+import { MergeSheet } from "../../components/MergeSheet";
+import { PromiseListSheet } from "../../components/PromiseListSheet";
 import { confirmDelete } from "../../components/confirmDelete";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
@@ -35,6 +37,8 @@ export default function PersonScreen() {
   const [renaming, setRenaming] = useState(false);
   const [circling, setCircling] = useState(false);
   const [orbiting, setOrbiting] = useState(false);
+  const [listing, setListing] = useState<"open" | "kept" | null>(null);
+  const [merging, setMerging] = useState(false);
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
   const name = p?.name;
@@ -116,8 +120,8 @@ export default function PersonScreen() {
         )}
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 20 }}>
-          <Stat big={String(p.open)} small="open" />
-          <Stat big={String(p.kept)} small="kept" />
+          <Stat big={String(p.open)} small="open" onPress={() => setListing("open")} />
+          <Stat big={String(p.kept)} small="kept" onPress={() => setListing("kept")} />
           <Stat big={p.lastTalk} small="last talk" />
         </View>
 
@@ -192,7 +196,23 @@ export default function PersonScreen() {
             {p.email ? <Pill label="Email" onPress={() => Linking.openURL(`mailto:${p.email}`)} /> : null}
           </View>
         )}
+        <Pressable accessibilityRole="button" onPress={() => setMerging(true)}
+          style={{ marginTop: 18, flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 18, borderWidth: 1.5, borderColor: colors.line }}>
+          <Icon name="contacts" size={18} color={colors.soft} />
+          <View style={{ flex: 1 }}>
+            <T w="extrabold" style={{ fontSize: 14 }}>Merge with another contact</T>
+            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Same person under two names? Combine them.</T>
+          </View>
+          <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
+        </Pressable>
       </ScrollView>
+
+      <PromiseListSheet visible={listing !== null} onClose={() => setListing(null)}
+        title={listing === "kept" ? `Kept with ${first}` : `Still to do for ${first}`}
+        empty={listing === "kept" ? `No kept promises with ${first} yet.` : `Nothing open with ${first}. You're all caught up.`}
+        todos={s.todos.filter((t) => t.personId === p.id && t.status === (listing === "kept" ? "done" : "open"))} />
+      <MergeSheet person={p} visible={merging} onClose={() => setMerging(false)}
+        onMerged={(id) => router.replace({ pathname: "/person/[id]", params: { id } })} />
 
       <WhoPicker key={String(picking)} visible={picking} title={`Which ${p.name}?`} initialQuery={p.name}
         onClose={() => setPicking(false)}
@@ -244,13 +264,17 @@ function firstSentence(text: string) {
   return (m ? m[0] : text).trim();
 }
 
-function Stat({ big, small }: { big: string; small: string }) {
-  return (
-    <View style={{ flex: 1, height: 64, borderRadius: 20, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
+function Stat({ big, small, onPress }: { big: string; small: string; onPress?: () => void }) {
+  const body = (
+    <>
       <T w="extrabold" style={{ fontSize: 20 }}>{big}</T>
-      <T w="semibold" style={{ fontSize: 12, color: colors.muted }}>{small}</T>
-    </View>
+      <T w="semibold" style={{ fontSize: 12, color: colors.muted }}>{small}{onPress ? " ›" : ""}</T>
+    </>
   );
+  const style = { flex: 1, height: 64, borderRadius: 20, backgroundColor: colors.card, alignItems: "center" as const, justifyContent: "center" as const };
+  return onPress ? (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${big} ${small}. Show the list`} onPress={onPress} style={({ pressed }) => [style, { opacity: pressed ? 0.7 : 1 }]}>{body}</Pressable>
+  ) : <View style={style}>{body}</View>;
 }
 
 function Fact({ k, v }: { k: string; v: string }) {
