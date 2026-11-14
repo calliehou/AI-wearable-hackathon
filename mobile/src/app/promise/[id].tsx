@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, PrimaryButton, T, TextButton, money } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
-import { confirmDelete } from "../../components/confirmDelete";
+import { useConfirmDelete } from "../../components/Confirm";
 import { dueDateTime, WhenEditor } from "../../components/WhenEditor";
 import { useStore } from "../../data/store";
 import type { PromiseType } from "../../data/types";
@@ -24,10 +24,12 @@ function reminderSeconds(date: string | null, time: string | null) {
 }
 
 const TYPES: PromiseType[] = ["Money", "Gift", "Task", "Plan"];
+const IDEAS_HINT: Record<PromiseType, string> = { Gift: "Gift ideas", Plan: "Places, plans and things to do", Task: "Tips, recipes and how-tos", Money: "Ways to send it or make it special" };
 
 export default function PromiseHeard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
   const t = s.todo(id);
   const [picking, setPicking] = useState(false);
@@ -78,6 +80,19 @@ export default function PromiseHeard() {
           <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{t.heardAt} · {t.heardLabel}</T>
         </View>
 
+        <Pressable accessibilityRole="button" accessibilityHint="Opens Ask Peri with ideas for this promise"
+          onPress={() => router.push({ pathname: "/ask", params: { ideas: t.id } })}
+          style={({ pressed }) => ({ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 22, backgroundColor: TYPE_TONE[kind], opacity: pressed ? 0.8 : 1 })}>
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="sparkle" size={18} color={colors.white} stroke={2.2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <T w="extrabold" style={{ fontSize: 15 }}>Get ideas from Peri</T>
+            <T w="medium" style={{ fontSize: 12, color: colors.soft, marginTop: 2 }} numberOfLines={1}>{IDEAS_HINT[kind]}{p && kind === "Gift" ? ` for ${p.name.split(" ")[0]}` : ""}</T>
+          </View>
+          <Icon name="chevronRight" size={18} stroke={2.4} />
+        </Pressable>
+
         <T w="extrabold" style={{ fontSize: 15, marginTop: 20 }}>What kind of promise?</T>
         <View accessibilityLabel="Promise type" style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
           {TYPES.map((k) => (
@@ -120,7 +135,7 @@ export default function PromiseHeard() {
         {t.status === "open" && kind !== "Money" && (
           <TextButton label="Mark as kept" onPress={() => { s.setStatus(t.id, "done"); router.replace({ pathname: "/kept/[id]", params: { id: t.id } }); }} />
         )}
-        <Pressable accessibilityRole="button" onPress={() => confirmDelete(t, s.deletePromise, () => router.back())}
+        <Pressable accessibilityRole="button" onPress={() => confirmDelete(t, () => router.back())}
           style={{ height: 44, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
           <Icon name="close" size={14} color="#C2410C" stroke={2.6} />
           <T style={{ fontSize: 14, color: "#C2410C" }}>Delete promise</T>

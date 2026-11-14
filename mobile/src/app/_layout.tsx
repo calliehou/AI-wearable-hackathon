@@ -11,6 +11,7 @@ import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ConfirmProvider } from "../components/Confirm";
 import { WELCOMED } from "../data/prefs";
 import { askNotifications, StoreProvider } from "../data/store";
 
@@ -44,6 +45,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
+        <ConfirmProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#FFFFFF" } }}>
           <Stack.Screen name="index" options={{ animation: "none" }} />
@@ -53,6 +55,7 @@ export default function RootLayout() {
           <Stack.Screen name="welcome" options={{ animation: "fade", gestureEnabled: false }} />
           <Stack.Screen name="mic" options={{ presentation: "modal" }} />
         </Stack>
+        </ConfirmProvider>
       </StoreProvider>
     </SafeAreaProvider>
   );

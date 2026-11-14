@@ -10,7 +10,7 @@ import { Icon, PeriMark, typeIcon } from "../components/Icon";
 import { Centered, Ring } from "../components/Orbit";
 import { Avatar, Pill, Section, T } from "../components/ui";
 import { WhoPicker } from "../components/WhoPicker";
-import { confirmDelete } from "../components/confirmDelete";
+import { useConfirmDelete } from "../components/Confirm";
 import { DragList, type Handle } from "../components/DragList";
 import { SwipeToDelete } from "../components/SwipeToDelete";
 import { BurstLayer, useBurst } from "../components/Burst";
@@ -26,6 +26,7 @@ const WEEK = ["Tmrw", "Tomorrow", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun
 
 export default function MyOrbit() {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
   const [circle, setCircle] = useState<string | null>(null);
   const [voice, setVoice] = useState<UnknownVoice | null>(null);
@@ -154,7 +155,7 @@ export default function MyOrbit() {
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
             <DragList items={other} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
               render={(t, handle) => (
-                <SwipeToDelete label={`Delete ${t.title}`} onDelete={(reset) => confirmDelete(t, s.deletePromise, undefined, reset)}>
+                <SwipeToDelete label={`Delete ${t.title}`} onDelete={(reset) => confirmDelete(t, undefined, reset)}>
                   <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} swipe />
                 </SwipeToDelete>
               )} />
@@ -197,10 +198,11 @@ export default function MyOrbit() {
 
 function DueCard({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?: Order }) {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const p = s.person(todo.personId);
   return (
     <Pressable accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
-      onLongPress={() => confirmDelete(todo, s.deletePromise)}
+      onLongPress={() => confirmDelete(todo)}
       style={{ width: 300, borderRadius: 26, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, overflow: "hidden",
         shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
       <View style={{ height: 150, backgroundColor: CARD_TONE[todo.type], alignItems: "center", justifyContent: "center" }}>
@@ -215,7 +217,7 @@ function DueCard({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?
         {order ? (
           <View style={{ position: "absolute", top: 10, right: 10 }}><Arrows order={order} horizontal /></View>
         ) : (
-          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
+          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo)} hitSlop={8}
             style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
             <Icon name="close" size={13} color={colors.soft} stroke={2.6} />
           </Pressable>
@@ -261,6 +263,7 @@ function Arrows({ order, horizontal }: { order: Order; horizontal?: boolean }) {
 
 function WeekRow({ todo, onWho, order, handle, swipe }: { todo: Todo; onWho: () => void; order?: Order; handle?: Handle; swipe?: boolean }) {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const p = s.person(todo.personId);
   const burst = useBurst();
   const done = todo.status === "done" || burst.active;
@@ -280,7 +283,7 @@ function WeekRow({ todo, onWho, order, handle, swipe }: { todo: Todo; onWho: () 
         {done && <Icon name="tick" size={14} color={colors.white} stroke={3} />}
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
-        onLongPress={() => confirmDelete(todo, s.deletePromise)}
+        onLongPress={() => confirmDelete(todo)}
         style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingVertical: 8 }}>
         <Avatar name={p?.name ?? null} unknown={!p} size={38} color={s.personColor(p)} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -304,7 +307,7 @@ function WeekRow({ todo, onWho, order, handle, swipe }: { todo: Todo; onWho: () 
         </View>
       ) : null}
       {order ? <Arrows order={order} /> : swipe ? null : (
-        <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
+        <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo)} hitSlop={8}
           style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
           <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
         </Pressable>

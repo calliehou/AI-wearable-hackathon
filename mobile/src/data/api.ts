@@ -106,8 +106,9 @@ export type Gifts = { occasion: string | null; said: string | null; ideas: { tit
 export const fetchGifts = (name: string) => call<Gifts>(`/api/peri/gifts?name=${encodeURIComponent(name)}`, undefined, 60000);
 
 export type AskAnswer = { reply: string; applied: { id: string; title: string; due_label: string; status: string }[] };
-export const askPeri = (message: string, history: { role: "user" | "peri"; text: string }[]) =>
-  call<AskAnswer>("/api/peri/ask", json("POST", { message, history }), 60000);
+// ideasFor: a promise id, so Peri can recommend things for it (recipes, places, gifts…).
+export const askPeri = (message: string, history: { role: "user" | "peri"; text: string }[], ideasFor?: string) =>
+  call<AskAnswer>("/api/peri/ask", json("POST", { message, history, ideas_for: ideasFor }), 60000);
 
 // Spoken recap of the last week with someone (ElevenLabs on the Mac).
 export type Recap = { text: string; audio: string | null; note?: string };

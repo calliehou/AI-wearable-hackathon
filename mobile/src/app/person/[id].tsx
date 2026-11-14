@@ -14,7 +14,7 @@ import { CirclePicker } from "../../components/CirclePicker";
 import { OrbitPicker } from "../../components/OrbitPicker";
 import { MergeSheet } from "../../components/MergeSheet";
 import { PromiseListSheet } from "../../components/PromiseListSheet";
-import { confirmDelete } from "../../components/confirmDelete";
+import { useConfirmDelete } from "../../components/Confirm";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
 import { colors, TYPE_TONE } from "../../theme";
@@ -24,6 +24,7 @@ const ORBIT = ["", "Inner orbit", "Middle orbit", "Outer orbit"];
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
   const p = s.person(id);
   const [about, setAbout] = useState<About | null>(null);
@@ -153,7 +154,7 @@ export default function PersonScreen() {
               : router.push({ pathname: "/promise/[id]", params: { id: t.id } });
             return (
               <Pressable key={t.id} accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
-                onLongPress={() => confirmDelete(t, s.deletePromise)}
+                onLongPress={() => confirmDelete(t)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 64, borderRadius: 20, backgroundColor: colors.card, paddingHorizontal: 14 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: TYPE_TONE[t.type], alignItems: "center", justifyContent: "center" }}>
                   <Icon name={typeIcon[t.type]} size={18} stroke={2.4} />

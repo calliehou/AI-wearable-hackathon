@@ -36,7 +36,8 @@ const SYSTEM = `You are Peri, a warm, brief assistant that helps the user keep t
 - To change a promise (due date, done, not a promise, kind, who it's for), add it to "changes" with its exact promise_id and only the fields to change (others null), and say what you changed.
 - Never invent people, promises or facts. If unsure which promise they mean, ask.
 - Due labels look like "Today", "Tonight", "Tmrw", "Thu", "Mon".
-- The band cannot vibrate; reminders arrive as phone notifications.`;
+- The band cannot vibrate; reminders arrive as phone notifications.
+- When the user asks for ideas or recommendations for a promise, give 3-5 specific, concrete suggestions that fit what was promised and the person it's for: e.g. sandwich recipes for "make a sandwich", places, food and activities for "plan a trip to Hawaii", soccer gifts with rough prices for "get a soccer gift". Use what the conversations say about the person (age, tastes, plans). Start with one short line, then one line per idea starting with "• ": the idea's name, then a few words on why or how. No headings, no markdown bold. Make no changes for an ideas request.`;
 
 type Change = {
   promise_id: string; due_label: string | null; due_detail: string | null;
@@ -48,11 +49,13 @@ export async function POST(req: Request) {
   if (!b || typeof b.message !== "string" || !b.message.trim()) return NextResponse.json({ error: "send { message }" }, { status: 400 });
   const history: { role: string; text: string }[] = Array.isArray(b.history) ? b.history.slice(-8) : [];
   const { snap, talks } = await overview();
+  const about = typeof b.ideas_for === "string" ? snap.todos.find((t) => t.id === b.ideas_for) : undefined;
   const ctx = [
     `Today: ${new Date().toDateString()}`,
     "People: " + snap.people.map((p) => `${p.name} (${p.circles.join("/") || "no circle"}, last talk ${p.lastTalk}, ${p.open} open)`).join("; "),
     "Open promises:\n" + snap.todos.filter((t) => t.status === "open")
       .map((t) => `- id=${t.id} "${t.title}" to ${t.personName ?? "unknown"} · ${t.type} · due ${t.dueLabel}${t.dueDetail ? " " + t.dueDetail : ""}`).join("\n"),
+    ...(about ? [`The user wants ideas for this promise: "${about.title}" (${about.type}) to ${about.personName ?? "someone not named yet"}, due ${about.dueLabel}${about.dueDate ? " " + about.dueDate : ""}. They said: "${about.quote}"`] : []),
     "Recent conversations:\n" + talks.slice(0, 12).map((t) => `- ${new Date(t.started_at).toDateString()}: ${t.title}. ${t.summary}`).join("\n"),
   ].join("\n\n");
   const convo = history.map((h) => `${h.role === "user" ? "User" : "Peri"}: ${h.text}`).join("\n");
