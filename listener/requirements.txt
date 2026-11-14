@@ -1,0 +1,8 @@
+bleak
+pyserial
+anthropic
+av
+numpy
+torch
+torchaudio
+speechbrain
