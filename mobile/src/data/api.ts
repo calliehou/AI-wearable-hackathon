@@ -1,11 +1,15 @@
 // Talks to the web app running on the Mac (npm run dev, port 3000). In Expo Go the phone
 // already reaches the Mac for the app bundle, so the same address is used here.
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import type { Circle, Kind, Person, PromiseType, Todo } from "./types";
 
 export function serverUrl(): string | null {
   const host = Constants.expoConfig?.hostUri?.split(":")[0];
-  return host ? `http://${host}:3000` : null;
+  if (host) return `http://${host}:3000`;
+  // Web preview on the Mac itself.
+  if (Platform.OS === "web" && typeof window !== "undefined") return `http://${window.location.hostname}:3000`;
+  return null;
 }
 
 function base(): string {

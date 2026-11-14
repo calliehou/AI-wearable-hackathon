@@ -97,9 +97,9 @@ export default function Contacts() {
             <Icon name="tick" size={13} stroke={3} />
           </View>
           <T w="extrabold" style={{ flex: 1, fontSize: 14 }}>All clear · {clear.length}</T>
-          <T style={{ fontSize: 13, color: colors.muted }}>{showClear || q ? "Hide" : "Show"}</T>
+          <T style={{ fontSize: 13, color: colors.muted }}>{showClear || !!q ? "Hide" : "Show"}</T>
         </Pressable>
-        {(showClear || q) && (
+        {(showClear || !!q) && (
           <View style={{ paddingHorizontal: 20, marginTop: 6 }}>
             {clear.map((p) => (
               <Pressable key={p.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}

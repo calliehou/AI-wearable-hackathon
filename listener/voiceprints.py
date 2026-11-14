@@ -133,6 +133,7 @@ def centroid(vectors):
 # ---- contact memory: check names against saved voices, and learn from clear matches
 
 VERIFY = 0.40                  # a name stays only if the voice matches that person's memory this well
+VERIFY_NEW = 0.35             # ...for someone with fewer than 3 saved samples
 LEARN = 0.55                   # a clear match (and a lead of LEARN_MARGIN) adds the sample to memory
 LEARN_MARGIN = 0.10
 VERIFY_SECONDS = 3.0           # less speech than this is too little to check
@@ -158,7 +159,11 @@ def verify(vec, seconds, people=None):
     ranked = sorted(scores.items(), key=lambda kv: -kv[1])
     best, best_s = (ranked[0] if ranked else (None, 0.0))
     second, second_s = (ranked[1] if len(ranked) > 1 else (None, 0.0))
-    if best is None or best_s < VERIFY:
+    # A person with little memory yet (named once) is checked a bit more leniently,
+    # so clear-enough matches can name them and grow their memory.
+    people_mem = people if people is not None else load_people()
+    need = VERIFY_NEW if best is not None and len(people_mem.get(best, [])) < 3 else VERIFY
+    if best is None or best_s < need:
         verdict, name = "none", None
     elif seconds < VERIFY_SECONDS or best_s - second_s < MARGIN:
         verdict, name = "weak", best

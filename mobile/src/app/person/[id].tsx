@@ -95,8 +95,9 @@ export default function PersonScreen() {
           <Stat big={p.lastTalk} small="last talk" />
         </View>
 
-        <Pressable accessibilityRole="button" onPress={recap} onLongPress={() => setShowLog(true)}
-          style={{ marginTop: 12, minHeight: 64, borderRadius: 22, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 }}>
+        <View style={{ marginTop: 12, minHeight: 64, borderRadius: 22, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Stop the recap" : "Play a recap of recent activity"} onPress={recap}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minHeight: 64 }}>
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.satellite, alignItems: "center", justifyContent: "center" }}>
             {loadingRecap ? <ActivityIndicator color={colors.ink} /> : <Icon name={playing ? "pause" : "speaker"} size={18} stroke={2.4} />}
           </View>
@@ -104,11 +105,12 @@ export default function PersonScreen() {
             <T style={{ fontSize: 16, color: colors.white }}>{playing ? "Playing recap…" : "Recent activity"}</T>
             <T w="medium" style={{ fontSize: 12, color: "#BDBDC6", marginTop: 2 }}>{p.moments} moment{p.moments === 1 ? "" : "s"} logged this month</T>
           </View>
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Show the log" onPress={() => setShowLog(true)} hitSlop={8}
             style={{ height: 32, borderRadius: 16, paddingHorizontal: 12, backgroundColor: "rgba(255,255,255,0.14)", justifyContent: "center" }}>
             <T style={{ fontSize: 12, color: colors.white }}>Log</T>
           </Pressable>
-        </Pressable>
+        </View>
         {note ? <T w="semibold" style={{ fontSize: 12, color: colors.muted, marginTop: 6, textAlign: "center" }}>{note}</T> : null}
         {playing && recapText ? <T w="medium" style={{ fontSize: 13, color: colors.body, lineHeight: 19, marginTop: 8 }}>{recapText}</T> : null}
 
@@ -157,7 +159,7 @@ export default function PersonScreen() {
             </View>
           ) : null}
         </View>
-        {(p.phone || p.email) && (
+        {!!(p.phone || p.email) && (
           <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
             {p.phone ? <Pill label={`Call ${first}`} onPress={() => Linking.openURL(`tel:${p.phone}`)} /> : null}
             {p.email ? <Pill label="Email" onPress={() => Linking.openURL(`mailto:${p.email}`)} /> : null}
