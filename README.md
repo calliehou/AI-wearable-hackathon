@@ -1,0 +1,1 @@
+# AI-wearable-hackathon
