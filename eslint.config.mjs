@@ -19,6 +19,7 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "vexo-open-kit/**",
+      "mobile/**",
       ".venv/**",
     ],
   },
