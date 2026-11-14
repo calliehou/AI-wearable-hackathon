@@ -36,21 +36,29 @@ that `npx expo start` prints there (or in Expo Go: *Enter URL manually* → `exp
 No keys are needed on your laptop for this: the AI and speech services are called by the Mac
 with the band.
 
-## Run everything on your own laptop
-
-Only needed if you plug in a band yourself.
+## Run Peri on your own laptop, with your own data
 
 1. `npm install` in the repo root and in `mobile/`.
 2. Copy `.env.example` to `.env` and fill in the team's keys (Anthropic, Deepgram, ElevenLabs).
    Never commit `.env`.
-3. Python for the listener:
+3. In one terminal, in the repo root: `npm run dev`
+4. In another, in `mobile/`: `npx expo start`, then scan its QR code with Expo Go (phone on the
+   same Wi-Fi as the laptop).
+
+The app starts empty. Without a band you can still add promises with the mic button (hold and
+speak, or "Type it instead") and use Ask Peri, gift ideas, circles and the rest.
+
+### Optional: a band (or the pretend band) on your laptop
+
+1. Python for the listener:
    ```bash
    python3 -m venv .venv
    .venv/bin/pip install -r listener/requirements.txt
    git clone https://github.com/VexoAI-Org/vexo-open-kit.git   # stays out of git
    ```
-4. Set your band number in `listener/config.py` (`BAND = ...`) and your name (`WEARER = ...`).
-5. Run the three commands from the table above, each in its own terminal.
+2. Set your band number in `listener/config.py` (`BAND = ...`) and your name (`WEARER = ...`).
+3. Run the listener in a third terminal: `.venv/bin/python listener/listen.py` (band on USB), or
+   `.venv/bin/python listener/listen.py --sim` (no band: a pretend band reading a sample text).
 
 ## Working together
 
