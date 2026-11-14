@@ -12,6 +12,21 @@ def load():
     return json.loads(config.DATA_FILE.read_text(encoding="utf-8"))
 
 
+def recent_context(n=8, hours=6):
+    """Short summaries of the last few conversations, so Claude can tell who "him"/"her" is."""
+    cutoff = now().timestamp() - hours * 3600
+    lines = []
+    for item in load()[:n]:
+        try:
+            if datetime.fromisoformat(item["started_at"]).timestamp() < cutoff:
+                continue
+        except (KeyError, ValueError):
+            continue
+        names = ", ".join(p["name"] for p in item.get("people", []) if p.get("name"))
+        lines.append("- %s (with %s): %s" % (item["title"], names or "unknown", item["summary"]))
+    return "\n".join(lines)
+
+
 def known_people():
     names = []
     for item in load():

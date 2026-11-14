@@ -32,9 +32,13 @@ Your job:
 5. **List the promises the wearer made**: things the wearer said they will do, or need to do,
    for another person, whether that person is in the conversation or not ("I'll send you the
    deck Monday", "I owe you $20", "I need to buy a present for my mom, her birthday is next
-   week", "I have to call Leo back"). Only the wearer's own commitments, never someone else's,
-   and never vague wishes ("we should get coffee sometime" is not a promise unless the wearer
-   commits to it).
+   week", "I have to call Leo back"). Shared plans the wearer is part of count too ("we need
+   to buy him something for soccer, or we can send him $5"). Not someone else's commitments
+   that don't involve the wearer, and not vague wishes ("we should get coffee sometime").
+   When the wearer says "him", "her" or "them", work out who from this conversation or the
+   recent conversations listed above it; if it's still unclear, leave for_name null (the app
+   will ask). One idea with alternatives ("buy him a soccer gift or send him $5") is one
+   promise: pick the main kind and mention the alternative in the title or due_detail.
    - `for_name`: the person it's for, as the wearer named them ("Mom", "Kelly", "Leo"), or null
      if the wearer only said "you" or no one was named.
    - `to_speaker`: the speaker number of the person it was promised to, only when that person
