@@ -33,7 +33,7 @@ export default async function InteractionPage({ params }: { params: Promise<{ id
         <ul className="mt-3 space-y-2">
           {item.people.map((p) => (
             <li key={p.speaker} className="rounded-xl border border-line bg-panel px-4 py-3">
-              <PersonName interactionId={item.id} person={p} readOnly={sample} />
+              <PersonName interactionId={item.id} person={{ ...p, voiceprint: undefined }} readOnly={sample} />
               <p className="mt-1 text-xs text-muted">{p.evidence}</p>
             </li>
           ))}

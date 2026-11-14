@@ -23,6 +23,7 @@ type Live = {
 const COLOURS = ["#d9534f", "#2e8b57", "#c27c0e", "#2b7bb9", "#8e44ad", "#b03a7a"];
 
 function voiceName(voices: Record<string, Voice>, speaker: number, wearer?: string) {
+  if (speaker < 0) return "…";
   const v = voices[String(speaker)];
   if (v?.is_wearer) return `${v.name ?? wearer ?? "You"} (you)`;
   return v?.name ?? `Speaker ${speaker + 1}`;
@@ -42,6 +43,22 @@ export default function LivePage() {
   const [live, setLive] = useState<Live | null>(null);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const bottom = useRef<HTMLDivElement>(null);
+  const [naming, setNaming] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saved, setSaved] = useState("");
+
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    if (naming === null || !draft.trim()) return;
+    const res = await fetch("/api/live/name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ speaker: naming, name: draft.trim() }),
+    });
+    setSaved(res.ok ? `Learning ${draft.trim()}'s voice…` : "Could not save the name.");
+    setNaming(null);
+    setTimeout(() => setSaved(""), 4000);
+  }
 
   useEffect(() => {
     let stop = false;
@@ -77,7 +94,9 @@ export default function LivePage() {
       : { label: "Band disconnected", colour: "#c27c0e" };
 
   const voices = live?.voices ?? {};
-  const speakers = Array.from(new Set((live?.turns ?? []).map((t) => t.speaker))).sort((a, b) => a - b);
+  const speakers = Array.from(new Set((live?.turns ?? []).map((t) => t.speaker)))
+    .filter((s) => s >= 0)
+    .sort((a, b) => a - b);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-8">
@@ -95,16 +114,50 @@ export default function LivePage() {
       </div>
 
       {speakers.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2" aria-label="Voices in this conversation">
-          {speakers.map((s) => (
-            <span
-              key={s}
-              className="inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1 text-sm"
-            >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: voiceColour(voices, s) }} aria-hidden />
-              {voiceName(voices, s, live?.wearer)}
-            </span>
-          ))}
+        <div className="mt-4" aria-label="Voices in this conversation">
+          <div className="flex flex-wrap gap-2">
+            {speakers.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setNaming(s);
+                  setDraft(voices[String(s)]?.name ?? "");
+                }}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-panel px-4 text-sm hover:border-accent"
+                aria-label={`Name ${voiceName(voices, s, live?.wearer)}`}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: voiceColour(voices, s) }} aria-hidden />
+                {voiceName(voices, s, live?.wearer)}
+                <span className="text-xs text-muted">{voices[String(s)]?.name ? "rename" : "name this voice"}</span>
+              </button>
+            ))}
+          </div>
+          {naming !== null && (
+            <form onSubmit={saveName} className="mt-3 flex flex-wrap items-center gap-2">
+              <label htmlFor="voice-name" className="text-sm">
+                Who is {voiceName(voices, naming, live?.wearer)}?
+              </label>
+              <input
+                id="voice-name"
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={`e.g. ${live?.wearer ?? "Mapa"}`}
+                className="min-h-11 flex-1 rounded-lg border border-line bg-background px-3"
+              />
+              <button type="submit" className="min-h-11 rounded-lg bg-accent px-4 font-medium text-on-accent">
+                Save voice
+              </button>
+              <button type="button" onClick={() => setNaming(null)} className="min-h-11 px-3 text-muted">
+                Cancel
+              </button>
+              <p className="w-full text-xs text-muted">
+                The band learns this voice and recognises it from now on, in every conversation.
+              </p>
+            </form>
+          )}
+          {saved && <p className="mt-2 text-sm text-muted" role="status">{saved}</p>}
         </div>
       )}
 

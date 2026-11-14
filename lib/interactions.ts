@@ -11,6 +11,27 @@ export type { Interaction, Person, Turn } from "./people";
 
 const DATA = path.join(process.cwd(), "data", "interactions.json");
 const SAMPLE = path.join(process.cwd(), "data", "interactions.sample.json");
+const VOICEPRINTS = path.join(process.cwd(), "data", "voiceprints.json");
+
+// Teach the band listener that this voiceprint belongs to `name` (and to nobody else).
+async function learnVoice(voiceprint: number[] | null | undefined, name: string | null) {
+  if (!voiceprint || voiceprint.length === 0) return;
+  let prints: Record<string, number[][]> = {};
+  try {
+    prints = JSON.parse(await fs.readFile(VOICEPRINTS, "utf-8"));
+  } catch {
+    /* no voiceprints yet */
+  }
+  const same = (a: number[]) => a.length === voiceprint.length && a.every((x, i) => Math.abs(x - voiceprint[i]) < 1e-4);
+  for (const who of Object.keys(prints)) {
+    prints[who] = prints[who].filter((v) => !same(v));
+    if (prints[who].length === 0) delete prints[who];
+  }
+  if (name) prints[name] = [...(prints[name] ?? []), voiceprint].slice(-40);
+  const tmp = VOICEPRINTS + ".tmp";
+  await fs.writeFile(tmp, JSON.stringify(prints), "utf-8");
+  await fs.rename(tmp, VOICEPRINTS);
+}
 
 export async function isSample(): Promise<boolean> {
   try {
@@ -40,6 +61,7 @@ export async function renamePerson(id: string, speaker: number, name: string | n
   if (!item || !person) return undefined;
   person.name = name && name.trim() ? name.trim().slice(0, 60) : null;
   person.evidence = "Named in the app.";
+  await learnVoice(person.voiceprint, person.name);
   const tmp = DATA + ".tmp";
   await fs.writeFile(tmp, JSON.stringify(items, null, 2), "utf-8");
   await fs.rename(tmp, DATA);

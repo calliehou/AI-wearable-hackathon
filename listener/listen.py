@@ -17,6 +17,7 @@ person to the next). If the cable, the band or the internet drops, it reconnects
 Options: --gap SECONDS (silence that ends a conversation), --max SECONDS (longest one).
 """
 import argparse
+import json
 import sys
 import threading
 import time
@@ -26,6 +27,8 @@ import config
 import diarize                                   # also puts the kit's examples folder on the path
 import store
 import summarize
+import voiceprints
+import voices
 
 sys.path.insert(0, str(config.KIT / "python"))
 from vexo_open.sync import Band, VexoError       # noqa: E402
@@ -38,33 +41,44 @@ def log(text):
     print("[%s] %s" % (time.strftime("%H:%M:%S"), text), flush=True)
 
 
-def finish(started_at, ended_at, turns, source, voices=None):
+def finish(started_at, ended_at, turns, source, tracker=None, prints=None):
     """Claude reads the conversation; the result is saved. Runs on a background thread.
-    voices: the Recorder's map of speaker number -> who that voice is, for this stream.
-    Claude gets it as a hint, and what Claude finds is written back into it."""
+    tracker: who each voice is (by voiceprint). Claude gets it as a hint; names Claude finds
+    for unnamed voices are kept for the rest of the stream. prints: voice id -> voiceprint,
+    saved with the interaction so renaming someone in the app teaches their voice."""
     if not turns:
         return
     with save_lock:
         try:
-            hints = dict(voices.snapshot()) if voices else {}
+            hints = tracker.snapshot() if tracker else {}
             reading = summarize.read_conversation(turns, store.known_people(), hints)
-            if voices:
-                voices.learn(reading["people"])
-            item = store.save(started_at, ended_at, turns, reading, source)
+            if tracker:
+                for p in reading["people"]:
+                    before = hints.get(p["speaker"], {})
+                    if p["name"] and not before.get("name"):
+                        # Claude heard the name said: remember it for this stream, and learn the
+                        # voice too unless it is only Claude's guess that this is the wearer.
+                        tracker.name(p["speaker"], p["name"], learn=not p["is_wearer"])
         except RuntimeError as error:
             # Keep the words even when Claude fails, so nothing recorded is lost.
-            item = store.save(started_at, ended_at, turns, {
+            snap = tracker.snapshot() if tracker else {}
+            reading = {
                 "title": "Unread conversation", "summary": "Claude could not read this one: %s" % error,
-                "people": [{"speaker": s, "name": None, "is_wearer": False, "evidence": "Not read."}
+                "people": [{"speaker": s, "name": snap.get(s, {}).get("name"),
+                            "is_wearer": snap.get(s, {}).get("is_wearer", False), "evidence": "Not read."}
                            for s in sorted({t["speaker"] for t in turns})],
-                "topics": [], "follow_ups": []}, source)
+                "topics": [], "follow_ups": []}
             log("Problem: %s (the transcript was saved anyway)" % error)
+        for p in reading["people"]:
+            vec = (prints or {}).get(p["speaker"])
+            p["voiceprint"] = [round(float(x), 5) for x in vec] if vec is not None else None
+        item = store.save(started_at, ended_at, turns, reading, source)
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
         log("Saved: %s  [%s]" % (item["title"], names))
 
 
 def cut(words, wall_start):
-    """Turn a slice of Deepgram words into (started_at, ended_at, turns with times from 0)."""
+    """Turn a slice of words into (started_at, ended_at, turns with times from 0)."""
     first, last = words[0]["start"], words[-1]["end"]
     started_at = datetime.fromtimestamp(wall_start + first, timezone.utc)
     ended_at = datetime.fromtimestamp(wall_start + last, timezone.utc)
@@ -72,59 +86,77 @@ def cut(words, wall_start):
     return started_at, ended_at, diarize.turns_from_words(shifted)
 
 
-class Voices:
-    """Who each Deepgram speaker number is, for one stream. Deepgram keeps the same number
-    for the same voice for as long as the stream stays open, so once a voice is named
-    (by Claude, or by being the wearer) that name follows it into every later conversation."""
-
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.people = {}                         # 1 -> {"name": "Sam", "is_wearer": False}
-
-    def learn(self, people):
-        with self.lock:
-            for p in people:
-                known = self.people.get(p["speaker"], {})
-                self.people[p["speaker"]] = {
-                    "name": p["name"] or known.get("name"),
-                    "is_wearer": p["is_wearer"] or known.get("is_wearer", False),
-                }
-
-    def snapshot(self):
-        with self.lock:
-            return {k: dict(v) for k, v in self.people.items()}
-
-
 def write_live(state):
     """data/live.json: what the app's Live page shows. Rewritten about twice a second."""
-    import json
     config.LIVE_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = config.LIVE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
     tmp.replace(config.LIVE_FILE)
 
 
+def read_name_requests():
+    """Names typed on the Live page ("Name this voice"): data/live_names.jsonl, one per line."""
+    path = config.LIVE_NAMES_FILE
+    if not path.exists():
+        return []
+    taken = path.with_suffix(".taken")
+    try:
+        path.replace(taken)                      # take the file so nothing is read twice
+        lines = taken.read_text(encoding="utf-8").splitlines()
+        taken.unlink()
+    except OSError:
+        return []
+    out = []
+    for line in lines:
+        try:
+            req = json.loads(line)
+            out.append((int(req["speaker"]), str(req.get("name") or "")[:60]))
+        except (ValueError, KeyError, TypeError):
+            pass
+    return out
+
+
 class Recorder:
-    """Keeps one Deepgram stream open on the band's sound and cuts it into interactions."""
+    """Keeps one Deepgram stream open on the band's sound, decides who said each word by
+    voiceprint, and cuts the stream into interactions."""
 
     def __init__(self, band, source, gap, longest):
         self.band, self.source, self.gap, self.longest = band, source, gap, longest
         self.ears = None
+        self.tracker = None
         self.done_upto = 0                       # words before this index are already saved
-        self.voices = Voices()
         self.last_saved_at = None
 
     def open(self):
+        from vexo_open.audio import PcmDecoder
+        self.decoder = PcmDecoder()
+        self.pcm = bytearray()                   # the band's sound, aligned with Deepgram's clock
+        self.pcm_start = 0                       # sample number of pcm[0] since the stream began
+        self.pcm_lock = threading.Lock()
+        self.tracker = voices.VoiceTracker(log)  # a new stream: voices are matched afresh
         self.ears = diarize.DiarizedSpeech().start(lambda text, final: log("  " + text) if final else None)
         self.done_upto = 0
-        self.voices = Voices()                   # a new stream numbers the voices afresh
-        self.band.on("audio", self.ears.feed)
+        self.band.on("audio", self.on_audio)
+
+    def on_audio(self, packet):
+        self.ears.feed(packet)
+        # Decode without the packet counter so lost packets are not filled in: the sound then
+        # keeps the same clock as the packets Deepgram received.
+        pcm = self.decoder.feed(packet.opus if hasattr(packet, "opus") else packet)
+        with self.pcm_lock:
+            self.pcm.extend(pcm)
+
+    def pcm_at(self, start, end):
+        with self.pcm_lock:
+            a = max(0, int(start * 16000) - self.pcm_start) * 2
+            b = max(0, int(end * 16000) - self.pcm_start) * 2
+            return bytes(self.pcm[a:b])
 
     def close(self):
         """Save what is pending and hang up Deepgram (the band keeps its microphone on)."""
         if not self.ears:
             return
-        self.band.off("audio", self.ears.feed)
+        self.band.off("audio", self.on_audio)
         try:
             self.ears.stop(wait=3.0)
         except Exception:                        # a stream that already failed: keep its words
@@ -134,36 +166,56 @@ class Recorder:
 
     def flush(self):
         """Hand the words not yet saved to Claude, as one interaction."""
-        words = self.ears.words[self.done_upto:]
-        self.done_upto += len(words)
-        if words:
-            started_at, ended_at, turns = cut(words, self.ears.started_wall)
-            worker = threading.Thread(target=finish, args=(started_at, ended_at, turns, self.source, self.voices),
-                                      daemon=True)
+        words = self.ears.words
+        self.tracker.assign(words, self.pcm_at, final=True)
+        first, last = self.done_upto, len(words) - 1
+        pending = words[first:]
+        self.done_upto = len(words)
+        if pending:
+            started_at, ended_at, turns = cut(pending, self.ears.started_wall)
+            prints = self.tracker.voiceprints_for(first, last)
+            worker = threading.Thread(target=finish, args=(started_at, ended_at, turns, self.source,
+                                                           self.tracker, prints), daemon=True)
             self.last_saved_at = time.time()
             workers.append(worker)
             worker.start()
             log("Conversation ended (%d turns): Claude is reading it while recording goes on." % len(turns))
+            with self.pcm_lock:                  # the saved part's sound is no longer needed
+                keep_from = int(pending[-1]["end"] * 16000)
+                drop = max(0, keep_from - self.pcm_start)
+                del self.pcm[:drop * 2]
+                self.pcm_start += drop
 
     def live(self, connected=True):
         """Write the conversation in progress, split by voice, for the app's Live page."""
+        snap = self.tracker.snapshot() if self.tracker else {}
         state = {"updated_at": time.time(), "band": config.BAND, "connected": connected,
                  "recording": bool(connected and self.ears), "wearer": config.WEARER,
-                 "voices": {str(k): v for k, v in self.voices.snapshot().items()},
+                 "voices": {str(k): v for k, v in snap.items()},
                  "started_at": None, "turns": [], "interim": None,
                  "last_saved_at": self.last_saved_at, "silence_gap": self.gap}
         if self.ears:
-            pending = self.ears.words[self.done_upto:]
+            pending = [dict(w) for w in self.ears.words[self.done_upto:]]
+            for w in pending:
+                if w["speaker"] < 0:
+                    w["speaker"] = self.tracker.provisional(w["dg"])
             if pending:
                 started_at, _, turns = cut(pending, self.ears.started_wall)
                 state["started_at"], state["turns"] = started_at.isoformat(), turns
             interim = list(self.ears.interim)
             if interim:
-                state["interim"] = {"speaker": interim[0]["speaker"], "text": " ".join(w["word"] for w in interim)}
+                state["interim"] = {"speaker": self.tracker.provisional(interim[0]["speaker"]),
+                                    "text": " ".join(w["word"] for w in interim)}
         write_live(state)
 
     def check(self, tapped):
-        """Called about twice a second: end the conversation on silence, a tap or length."""
+        """Called about twice a second: decide voices, take names typed on the Live page,
+        end the conversation on silence, a tap or length."""
+        self.tracker.reload_people()
+        for vid, name in read_name_requests():
+            log("Voice %d named %s on the Live page: learning this voice." % (vid + 1, name or "(no name)"))
+            self.tracker.name(vid, name, learn=True)
+        self.tracker.assign(self.ears.words, self.pcm_at)
         self.live()
         pending = self.ears.words[self.done_upto:]
         if not pending:
@@ -185,6 +237,10 @@ def connect(transport):
 
 
 def run_always(transport, source, gap, longest, stop_after=None):
+    log("Loading the voice model (recognises who is speaking; runs on this computer)...")
+    voiceprints.load_model()
+    known = sorted(voiceprints.load_people())
+    log("Known voices: %s" % (", ".join(known) if known else "none yet. Name voices on the Live page."))
     began = time.monotonic()
     while True:                                  # reconnect forever if the band goes away
         try:

@@ -5,6 +5,7 @@ export type Person = {
   name: string | null;
   is_wearer: boolean;
   evidence: string;
+  voiceprint?: number[] | null; // what this voice sounded like here (192 numbers), for learning names
 };
 
 export type Turn = { speaker: number; text: string; start: number; end: number };

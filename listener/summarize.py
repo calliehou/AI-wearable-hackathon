@@ -106,12 +106,14 @@ def read_conversation(turns, known_people, voices=None):
     for s in speakers:
         if s not in seen:
             people.append({"speaker": s, "name": None, "is_wearer": False, "evidence": "Not identified."})
+    wearer_known = any(v.get("is_wearer") for n, v in voices.items() if n in speakers)
     for p in people:
         earlier = voices.get(p["speaker"], {})
-        if not p["name"] and earlier.get("name"):
-            p["name"], p["evidence"] = earlier["name"], "Same voice as earlier in this recording."
-        if earlier.get("is_wearer") and not any(q["is_wearer"] for q in people):
-            p["is_wearer"] = True
+        if earlier.get("name"):
+            # Recognised by voiceprint (or named earlier): that beats a guess from the words.
+            p["name"], p["evidence"] = earlier["name"], "Recognised by voice."
+        if wearer_known:
+            p["is_wearer"] = bool(earlier.get("is_wearer"))
         if p["is_wearer"]:
             p["name"] = config.WEARER     # the wearer's name is known; don't rely on it being said
     result["people"] = sorted(people, key=lambda p: p["speaker"])

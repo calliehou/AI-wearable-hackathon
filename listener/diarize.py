@@ -41,7 +41,9 @@ class DiarizedSpeech(speech.DeepgramSpeech):
             best = (message.get("channel", {}).get("alternatives") or [{}])[0]
             for w in best.get("words") or []:
                 self.words.append({
-                    "speaker": int(w.get("speaker", 0)),
+                    "speaker": -1,                    # the voice, decided by voices.VoiceTracker
+                    "dg": int(w.get("speaker", 0)),   # Deepgram's own speaker label
+                    "arrived": time.time(),
                     "word": w.get("punctuated_word") or w.get("word") or "",
                     "start": float(w.get("start", 0.0)),
                     "end": float(w.get("end", 0.0)),

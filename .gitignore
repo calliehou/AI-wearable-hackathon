@@ -29,3 +29,6 @@ data/interactions.json
 data/*.tmp
 data/live.json
 *.tsbuildinfo
+data/voiceprints.json
+data/live_names.jsonl
+data/*.taken
