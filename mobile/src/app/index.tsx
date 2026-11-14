@@ -27,16 +27,32 @@ export default function MyOrbit() {
   const [voice, setVoice] = useState<UnknownVoice | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
+  const [ordering, setOrdering] = useState<"today" | "week" | "other" | null>(null);
+  // Move a promise up/down (or left/right) within its section and save the new order.
+  const move = (list: Todo[], i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const ids = list.map((t) => t.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    s.reorder(ids);
+  };
+  const orderButton = (key: "today" | "week" | "other", n: number) => n > 1 ? (
+    <Pressable accessibilityRole="button" onPress={() => setOrdering(ordering === key ? null : key)} hitSlop={8}
+      style={{ height: 30, borderRadius: 15, paddingHorizontal: 12, justifyContent: "center", backgroundColor: ordering === key ? colors.ink : colors.card }}>
+      <T style={{ fontSize: 12, color: ordering === key ? colors.white : colors.ink }}>{ordering === key ? "Done" : "Edit order"}</T>
+    </Pressable>
+  ) : null;
 
   const inCircle = (p?: Person) => !circle || !!p?.circles.includes(circle);
   const people = s.people.filter((p) => inCircle(p));
   const open = s.todos.filter((t) => t.status === "open" && (!circle || inCircle(s.person(t.personId))));
-  const today = open.filter((t) => TODAY.includes(t.dueLabel));
+  const byRank = (a: Todo, b: Todo) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER);
+  const today = open.filter((t) => TODAY.includes(t.dueLabel)).sort(byRank);
   const shown = s.todos.filter((t) => t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
-  const week = shown.filter((t) => t.status === "open" && WEEK.includes(t.dueLabel));
+  const week = shown.filter((t) => t.status === "open" && WEEK.includes(t.dueLabel)).sort(byRank);
   // Everything else: later or undated promises first, then the ones you kept.
   const other = shown.filter((t) => !week.includes(t) && !(t.status === "open" && TODAY.includes(t.dueLabel)))
-    .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0) || b.heardIso.localeCompare(a.heardIso));
+    .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0) || byRank(a, b) || b.heardIso.localeCompare(a.heardIso));
   const dueToday = new Set(today.map((t) => t.personId));
 
   const planet = (p: Person, size: number) => ({
@@ -111,10 +127,11 @@ export default function MyOrbit() {
           shadowColor: colors.ink, shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: -6 }, elevation: 3 }}>
           <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: colors.handle, alignSelf: "center" }} />
 
-          <Section title={`Due today · ${today.length}`} right={today.length > 1 ? <T style={{ fontSize: 13, color: colors.muted }}>Swipe →</T> : null} />
+          <Section title={`Due today · ${today.length}`} right={orderButton("today", today.length)} />
           {today.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={312} decelerationRate="fast" contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}>
-              {today.map((t) => <DueCard key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+              {today.map((t, i) => <DueCard key={t.id} todo={t} onWho={() => setPicking(t.id)}
+                order={ordering === "today" ? { first: i === 0, last: i === today.length - 1, move: (d) => move(today, i, d) } : undefined} />)}
             </ScrollView>
           ) : (
             <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 20 }}>Nothing due today. Your band is listening for new promises.</T>
@@ -142,19 +159,17 @@ export default function MyOrbit() {
             </>
           )}
 
-          <Section title={`This week · ${week.length}`} right={
-            <Pressable accessibilityRole="link" onPress={() => router.replace("/contacts")} hitSlop={8}><T style={{ fontSize: 13, color: colors.muted }}>All contacts</T></Pressable>
-          } />
+          <Section title={`This week · ${week.length}`} right={orderButton("week", week.length)} />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {week.map((t) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+            {week.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
+              order={ordering === "week" ? { first: i === 0, last: i === week.length - 1, move: (d) => move(week, i, d) } : undefined} />)}
             {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
           </View>
 
-          <Section title={`Other promises · ${other.filter((t) => t.status === "open").length}`} right={
-            other.some((t) => t.status === "done") ? <T style={{ fontSize: 13, color: colors.muted }}>{other.filter((t) => t.status === "done").length} kept</T> : null
-          } />
+          <Section title={`Other promises · ${other.filter((t) => t.status === "open").length}`} right={orderButton("other", other.length)} />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {other.map((t) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+            {other.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
+              order={ordering === "other" ? { first: i === 0, last: i === other.length - 1, move: (d) => move(other, i, d) } : undefined} />)}
             {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>No other promises.</T>}
           </View>
         </View>
@@ -169,7 +184,7 @@ export default function MyOrbit() {
   );
 }
 
-function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
+function DueCard({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?: Order }) {
   const s = useStore();
   const p = s.person(todo.personId);
   return (
@@ -186,10 +201,14 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
         <View style={{ position: "absolute", top: 12, left: 12, right: 70, backgroundColor: colors.white, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 10 }}>
           <T style={{ fontSize: 12 }} numberOfLines={1}>“{todo.quote}”</T>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
-          style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
-          <Icon name="close" size={13} color={colors.soft} stroke={2.6} />
-        </Pressable>
+        {order ? (
+          <View style={{ position: "absolute", top: 10, right: 10 }}><Arrows order={order} horizontal /></View>
+        ) : (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
+            style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="close" size={13} color={colors.soft} stroke={2.6} />
+          </Pressable>
+        )}
         <View style={{ position: "absolute", bottom: 12, left: 12, backgroundColor: colors.ink, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center" }}>
           <Icon name={typeIcon[todo.type]} size={11} color={colors.white} stroke={2.6} />
           <T style={{ fontSize: 11, color: colors.white }}>{todo.type}</T>
@@ -215,7 +234,21 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
   );
 }
 
-function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
+type Order = { first: boolean; last: boolean; move: (dir: -1 | 1) => void };
+
+function Arrows({ order, horizontal }: { order: Order; horizontal?: boolean }) {
+  const btn = (dir: -1 | 1, disabled: boolean) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={dir < 0 ? (horizontal ? "Move left" : "Move up") : (horizontal ? "Move right" : "Move down")}
+      disabled={disabled} onPress={() => order.move(dir)} hitSlop={6}
+      style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.ink, opacity: disabled ? 0.2 : 1, alignItems: "center", justifyContent: "center",
+        transform: [{ rotate: horizontal ? (dir < 0 ? "90deg" : "-90deg") : dir < 0 ? "180deg" : "0deg" }] }}>
+      <Icon name="chevronDown" size={16} color={colors.white} stroke={2.8} />
+    </Pressable>
+  );
+  return <View style={{ flexDirection: horizontal ? "row" : "column", gap: 4 }}>{btn(-1, order.first)}{btn(1, order.last)}</View>;
+}
+
+function WeekRow({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?: Order }) {
   const s = useStore();
   const p = s.person(todo.personId);
   const done = todo.status === "done";
@@ -244,10 +277,12 @@ function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
           <T w="extrabold" style={{ fontSize: 12 }}>{done ? "Kept" : todo.dueLabel}</T>
         </View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
-        style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
-        <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
-      </Pressable>
+      {order ? <Arrows order={order} /> : (
+        <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
+          style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
+          <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
+        </Pressable>
+      )}
     </View>
   );
 }

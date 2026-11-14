@@ -44,6 +44,7 @@ export type Todo = {
   confidence: number;
   status: "open" | "done" | "dismissed";
   voiceKnown: boolean;
+  rank: number | null; // your order (lower first); null = by date
 };
 
 export type Circle = { name: string; color: string };

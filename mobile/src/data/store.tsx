@@ -32,6 +32,7 @@ type Store = {
   setStatus: (todoId: string, status: Todo["status"]) => Promise<void>;
   changePromise: (todoId: string, change: api.PromiseChange) => Promise<void>;
   deletePromise: (todoId: string) => Promise<void>;
+  reorder: (ids: string[]) => Promise<void>; // ids in your order, first = top
   addPromises: (items: api.NewPromise[]) => Promise<void>;
   createCircle: (name: string, color: string) => Promise<void>;
   setMembership: (person: string, circle: string, member: boolean) => Promise<void>;
@@ -195,6 +196,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       changePromise: (todoId, change) => {
         patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, ...(change.type ? { type: change.type } : {}) } : t)) }));
         return thenRefresh(api.updatePromise(todoId, change));
+      },
+      reorder: (ids) => {
+        const pos = new Map(ids.map((id, i) => [id, i]));
+        patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (pos.has(t.id) ? { ...t, rank: pos.get(t.id)! } : t)) }));
+        return thenRefresh(api.reorderPromises(ids));
       },
       deletePromise: (todoId) => {
         patchLocal((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== todoId) }));

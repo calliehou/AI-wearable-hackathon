@@ -32,6 +32,7 @@ export type StoredPromise = {
   person_source?: "voice" | "named" | "picked" | null; // "named": said aloud, not yet picked from contacts
   status: "open" | "done" | "dismissed";
   note?: string | null;
+  rank?: number | null; // your order (lower first); unset = by date
 };
 
 // The design's four kinds of promise.
@@ -216,6 +217,7 @@ export async function snapshot() {
       confidence: p.confidence,
       status: p.status,
       voiceKnown: p.speaker !== null,
+      rank: p.rank ?? null,
     }));
 
   const peopleOut = [...people.values()].map((p) => {
@@ -428,4 +430,14 @@ export async function setOrbit(person: string, ring: 1 | 2 | 3 | null) {
   else all[id] = ring;
   await writeJson(ORBITS, all);
   return { id, ring };
+}
+
+
+// Your order for a group of promises: ids in the order you want them (first = top).
+export async function reorderPromises(ids: string[]) {
+  const items = await readPromises();
+  const pos = new Map(ids.map((id, i) => [id, i]));
+  for (const p of items) if (pos.has(p.id)) p.rank = pos.get(p.id)!;
+  await writePromises(items);
+  return { ok: true, count: pos.size };
 }
