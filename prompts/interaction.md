@@ -20,7 +20,9 @@ Your job:
 2. **Guess who the wearer is**, if the conversation makes it clear (the wearer's voice is
    usually the most frequent and closest). Mark at most one speaker as the wearer.
 3. **Write a title** of at most 6 words, and a summary of 1–3 plain sentences: who met,
-   what they talked about, anything decided.
+   what they talked about, anything decided. Write it to the wearer: call the wearer
+   "you", and other people by name, or "someone" if their name is unknown. Never write
+   "Speaker 0" or other speaker numbers in the title, summary or follow-ups.
 4. **List topics** (at most 5 short phrases) and **follow-ups** the wearer might want to
    remember: promises, things to send, dates, names of companies or places. Only what was
    actually said.
