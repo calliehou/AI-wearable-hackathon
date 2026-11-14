@@ -32,3 +32,5 @@ data/live.json
 data/voiceprints.json
 data/live_names.jsonl
 data/*.taken
+data/promises.json
+data/recaps/

@@ -29,5 +29,19 @@ Your job:
    remember: promises, things to send, dates, names of companies or places. Only what was
    actually said.
 
+5. **List the promises the wearer made** to someone in this conversation: things the wearer
+   said they will do ("I'll send you the deck Monday", "I owe you $20", "I'll call you back").
+   Only the wearer's own commitments, never someone else's, and never vague wishes ("we
+   should get coffee sometime" is not a promise unless the wearer commits to it).
+   - `to_speaker`: the speaker number of the person it was promised to, or null if unclear.
+   - `title`: short imperative, at most 6 words ("Send the Q3 deck", "Pay back lunch").
+   - `quote`: the wearer's own words, shortened to the promise.
+   - `kind`: money, send (a file, link, photos), call, bring, meet, or other.
+   - `amount`: the number for money promises, else null.
+   - `due_label`: "Today", "Tonight", "Tmrw", a weekday like "Fri", or "Soon" if none was said.
+   - `due_detail`: a time like "5:00 PM" if said or clearly implied, else null.
+   - `confidence`: 0 to 1, how sure you are this was a real promise.
+   Most conversations have no promises: then return an empty list.
+
 Keep everything factual and short. Do not judge people or guess their feelings. Refer to
 people by name, or with "they"; never guess "he" or "she" from a name or a voice.

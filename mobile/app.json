@@ -35,7 +35,8 @@
         {
           "microphonePermission": "Sendly listens when you tap the mic so you can add a promise by voice."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "scheme": "sendly",
     "experiments": {

@@ -1,11 +1,13 @@
 // Screen 7 · Contact card + voice recap.
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as Speech from "expo-speech";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Linking, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, kindIcon } from "../../components/Icon";
 import { Avatar, Header, T } from "../../components/ui";
+import { fetchRecap } from "../../data/api";
 import { useStore } from "../../data/store";
 import { colors, kindTile } from "../../theme";
 
@@ -19,21 +21,54 @@ export default function PersonCard() {
   const [voice, setVoice] = useState(false);
   const [paused, setPaused] = useState(false);
   const [transcript, setTranscript] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [recap, setRecap] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [usingPhoneVoice, setUsingPhoneVoice] = useState(false);
+  const player = useAudioPlayer();                 // plays the ElevenLabs recap from the Mac
+  const status = useAudioPlayerStatus(player);
   useEffect(() => () => { Speech.stop(); }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the player tells us the recap ended
+    if (status.didJustFinish) setVoice(false);
+  }, [status.didJustFinish]);
   if (!p) return <View style={{ flex: 1, backgroundColor: colors.white, paddingTop: insets.top }}><Header title="Contact" /></View>;
 
   const open = openFor(p.id);
   const kept = todos.filter((t) => t.personId === p.id && t.status === "done").length;
   const first = p.name.split(" ")[0];
-  const recap = p.recap ?? `Your band hasn't heard much with ${first} this week yet. Recaps appear here after you talk.`;
+  const shownRecap = recap ?? `Recaps of your last week with ${first} appear here.`;
 
-  function toggle() {
-    if (voice) { Speech.stop(); setVoice(false); return; }
-    setVoice(true); setPaused(false); setTranscript(false);
-    Speech.speak(recap, { onDone: () => setVoice(false), onStopped: () => undefined });
+  async function toggle() {
+    if (voice) { player.pause(); Speech.stop(); setVoice(false); return; }
+    setPaused(false); setTranscript(false); setNote(""); setLoading(true);
+    try {
+      const r = await fetchRecap(p!.name);
+      setRecap(r.text);
+      setVoice(true);
+      if (r.audio) {
+        await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+        player.replace({ uri: r.audio });
+        player.seekTo(0);
+        player.play();
+        setUsingPhoneVoice(false);
+      } else {
+        // No ElevenLabs audio: the phone reads the recap itself.
+        if (r.note) setNote(r.note);
+        setUsingPhoneVoice(true);
+        Speech.speak(r.text, { onDone: () => setVoice(false) });
+      }
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }
-  async function togglePause() {
-    if (paused) { Speech.resume(); setPaused(false); } else { Speech.pause(); setPaused(true); }
+  function togglePause() {
+    if (usingPhoneVoice) {
+      if (paused) Speech.resume(); else Speech.pause();
+    } else if (paused) player.play(); else player.pause();
+    setPaused(!paused);
   }
 
   return (
@@ -68,8 +103,8 @@ export default function PersonCard() {
 
         {(p.phone || p.email) && (
           <View style={{ borderWidth: 2, borderColor: colors.line, borderRadius: 22, paddingHorizontal: 16, marginTop: 12 }}>
-            {p.phone ? <Line k="Phone" v={p.phone} last={!p.email} /> : null}
-            {p.email ? <Line k="Email" v={p.email} last /> : null}
+            {p.phone ? <Pressable accessibilityRole="link" onPress={() => Linking.openURL(`tel:${p.phone}`)}><Line k="Phone" v={p.phone} last={!p.email} /></Pressable> : null}
+            {p.email ? <Pressable accessibilityRole="link" onPress={() => Linking.openURL(`mailto:${p.email}`)}><Line k="Email" v={p.email} last /></Pressable> : null}
           </View>
         )}
 
@@ -88,10 +123,11 @@ export default function PersonCard() {
 
         <Pressable accessibilityRole="button" accessibilityState={{ selected: voice }} onPress={toggle}
           style={{ height: 56, borderRadius: 28, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 12 }}>
-          <Icon name="speaker" size={20} color={colors.white} />
-          <T style={{ fontSize: 16, color: colors.white }}>{voice ? "Stop recap" : "Recent activity"}</T>
+          {loading ? <ActivityIndicator color={colors.white} /> : <Icon name="speaker" size={20} color={colors.white} />}
+          <T style={{ fontSize: 16, color: colors.white }}>{loading ? "Preparing recap…" : voice ? "Stop recap" : "Recent activity"}</T>
         </Pressable>
 
+        {note ? <T w="semibold" style={{ fontSize: 12, color: colors.muted, marginTop: 8, textAlign: "center" }}>{note}</T> : null}
         {voice && (
           <View style={{ backgroundColor: "#FFF1E8", borderRadius: 22, paddingVertical: 14, paddingHorizontal: 16, marginTop: 12 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -107,7 +143,7 @@ export default function PersonCard() {
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: transcript }} onPress={() => setTranscript(!transcript)} style={{ height: 36, justifyContent: "center", marginTop: 6 }}>
               <T style={{ fontSize: 13, color: colors.soft }}>{transcript ? "Hide transcript" : "Show transcript"}</T>
             </Pressable>
-            {transcript && <T w="medium" style={{ fontSize: 13, lineHeight: 19, color: colors.body }}>{recap}</T>}
+            {transcript && <T w="medium" style={{ fontSize: 13, lineHeight: 19, color: colors.body }}>{shownRecap}</T>}
           </View>
         )}
       </ScrollView>

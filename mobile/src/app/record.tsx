@@ -87,11 +87,9 @@ export default function Record() {
   function add() {
     if (!parsed) return;
     addTodo({
-      title: parsed.title, quote: parsed.quote, kind: parsed.kind, amount: parsed.amount ?? undefined,
-      dueLabel: parsed.due_label, dueDetail: parsed.due_detail ?? undefined, heardLabel: "said just now",
-      heardAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), confidence: 1,
-    }, parsed.person_name);
-    setStep("added");
+      title: parsed.title, quote: parsed.quote, kind: parsed.kind, amount: parsed.amount,
+      dueLabel: parsed.due_label, dueDetail: parsed.due_detail,
+    }, parsed.person_name).then(() => setStep("added")).catch((e) => setError((e as Error).message));
   }
 
   const who = parsed?.person_name ?? null;

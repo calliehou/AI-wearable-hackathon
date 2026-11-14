@@ -73,6 +73,8 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None):
             vec = (prints or {}).get(p["speaker"])
             p["voiceprint"] = [round(float(x), 5) for x in vec] if vec is not None else None
         item = store.save(started_at, ended_at, turns, reading, source)
+        for pr in store.save_promises(item, reading.get("promises", [])):
+            log("New promise: %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
         log("Saved: %s  [%s]" % (item["title"], names))
 

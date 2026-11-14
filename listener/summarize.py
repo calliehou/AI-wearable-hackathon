@@ -27,8 +27,26 @@ SCHEMA = {
         },
         "topics": {"type": "array", "items": {"type": "string"}},
         "follow_ups": {"type": "array", "items": {"type": "string"}},
+        "promises": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "to_speaker": {"type": ["integer", "null"]},
+                    "title": {"type": "string"},
+                    "quote": {"type": "string"},
+                    "kind": {"type": "string", "enum": ["money", "send", "call", "bring", "meet", "other"]},
+                    "amount": {"type": ["number", "null"]},
+                    "due_label": {"type": "string"},
+                    "due_detail": {"type": ["string", "null"]},
+                    "confidence": {"type": "number"},
+                },
+                "required": ["to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "confidence"],
+                "additionalProperties": False,
+            },
+        },
     },
-    "required": ["title", "summary", "people", "topics", "follow_ups"],
+    "required": ["title", "summary", "people", "topics", "follow_ups", "promises"],
     "additionalProperties": False,
 }
 

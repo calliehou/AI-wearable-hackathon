@@ -5,10 +5,12 @@ import {
   PlusJakartaSans_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/plus-jakarta-sans";
-import { Stack } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { router, Stack } from "expo-router";
+import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { StoreProvider } from "../data/store";
+import { askNotifications, StoreProvider } from "../data/store";
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -17,6 +19,15 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
   });
+  useEffect(() => {
+    askNotifications();
+    // Tapping a "New promise" notification opens that promise.
+    const sub = Notifications.addNotificationResponseReceivedListener((r) => {
+      const id = r.notification.request.content.data?.todoId;
+      if (typeof id === "string") router.push({ pathname: "/todo/[id]", params: { id } });
+    });
+    return () => sub.remove();
+  }, []);
   if (!loaded) return null;
   return (
     <SafeAreaProvider>

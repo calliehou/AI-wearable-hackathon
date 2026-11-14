@@ -12,7 +12,7 @@ import { colors } from "../../theme";
 
 export default function TodoDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { todo, person, setStatus } = useStore();
+  const { todo, person, setStatus, setTodoPerson } = useStore();
   const insets = useSafeAreaInsets();
   const [picking, setPicking] = useState(false);
   const t = todo(id);
@@ -114,7 +114,7 @@ export default function TodoDetail() {
           )}
         </ScrollView>
       </View>
-      <WhoPicker todoId={t.id} visible={picking} onClose={() => setPicking(false)} />
+      <WhoPicker visible={picking} quote={t.quote} onClose={() => setPicking(false)} onPick={(name) => setTodoPerson(t.id, { name })} />
     </View>
   );
 }

@@ -1,79 +1,78 @@
-// "Who is this?": when the band didn't catch who a to-do is with, pick the person from
-// people Sendly already knows or from the phone's contacts.
-import { Contact } from "expo-contacts";
+// "Who is this?": pick the person a promise (or a voice) belongs to, from your phone's
+// contacts or the people Sendly already knows. Naming a voice teaches the band to recognise it.
 import { useState } from "react";
-import { Alert, FlatList, Modal, Pressable, TextInput, View } from "react-native";
+import { FlatList, Linking, Modal, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "../data/store";
 import { colors, fonts } from "../theme";
 import { Icon } from "./Icon";
 import { Avatar, T } from "./ui";
 
-export function WhoPicker({ todoId, visible, onClose }: { todoId: string; visible: boolean; onClose: () => void }) {
-  const { people, setTodoPerson } = useStore();
+type Row = { key: string; name: string; sub?: string };
+
+export function WhoPicker({ visible, onClose, onPick, quote, title = "Who is this with?" }: {
+  visible: boolean; onClose: () => void; onPick: (name: string) => void; quote?: string; title?: string;
+}) {
+  const { people, contacts, contactsStatus, askContacts } = useStore();
   const [query, setQuery] = useState("");
   const insets = useSafeAreaInsets();
   const q = query.trim().toLowerCase();
-  const matches = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
 
-  function choose(p: { id?: string; name: string; phone?: string }) {
-    setTodoPerson(todoId, p);
+  // People the band has heard first, then the rest of your contacts.
+  const known = new Set(people.map((p) => p.name.toLowerCase()));
+  const rows: Row[] = [
+    ...people.map((p) => ({ key: `p-${p.id}`, name: p.name, sub: p.lastHeard })),
+    ...contacts.filter((c) => !known.has(c.name.toLowerCase())).map((c) => ({ key: `c-${c.id}`, name: c.name, sub: c.phone })),
+  ].filter((r) => !q || r.name.toLowerCase().includes(q));
+
+  function choose(name: string) {
+    const clean = name.trim();
+    if (!clean) return;
     setQuery("");
+    onPick(clean);
     onClose();
-  }
-
-  async function fromContacts() {
-    try {
-      const contact = await Contact.presentPicker();
-      if (!contact) return; // cancelled
-      const name = (await contact.getFullName()).trim();
-      const phones = await contact.getPhones().catch(() => []);
-      if (!name) {
-        Alert.alert("That contact has no name", "Pick another contact, or type the name in the search box.");
-        return;
-      }
-      choose({ name, phone: phones[0]?.number ?? undefined });
-    } catch {
-      Alert.alert("Contacts unavailable", "Sendly couldn't open your contacts. Type the name in the search box instead.");
-    }
   }
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable accessibilityLabel="Close" onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(17,17,17,0.35)" }} />
-      <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 16, maxHeight: "80%" }}>
+      <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 16, height: "80%" }}>
         <View style={{ width: 56, height: 5, borderRadius: 3, backgroundColor: colors.sheetHandle, alignSelf: "center", marginBottom: 16 }} />
-        <T w="extrabold" style={{ fontSize: 22 }}>Who is this with?</T>
-        <T w="medium" style={{ fontSize: 14, color: colors.muted, marginTop: 4 }}>
-          Your band heard the promise but not the name.
-        </T>
+        <T w="extrabold" style={{ fontSize: 22 }}>{title}</T>
+        {quote ? (
+          <View style={{ flexDirection: "row", gap: 8, backgroundColor: colors.card, borderRadius: 16, padding: 12, marginTop: 10 }}>
+            <Icon name="wave" size={16} stroke={2.4} />
+            <T w="semibold" style={{ flex: 1, fontSize: 14, lineHeight: 19 }} numberOfLines={3}>“{quote}”</T>
+          </View>
+        ) : null}
 
-        <Pressable
-          accessibilityRole="button" onPress={fromContacts}
-          style={({ pressed }) => ({ marginTop: 16, height: 56, borderRadius: 28, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, opacity: pressed ? 0.8 : 1 })}
-        >
-          <Icon name="people" size={20} color={colors.white} />
-          <T style={{ color: colors.white, fontSize: 16 }}>Choose from my contacts</T>
-        </Pressable>
+        {contactsStatus !== "granted" && (
+          <Pressable accessibilityRole="button" onPress={() => (contactsStatus === "denied" ? Linking.openSettings() : askContacts())}
+            style={({ pressed }) => ({ marginTop: 14, height: 52, borderRadius: 26, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, opacity: pressed ? 0.8 : 1 })}>
+            <Icon name="people" size={20} color={colors.white} />
+            <T style={{ color: colors.white, fontSize: 15 }}>{contactsStatus === "denied" ? "Allow contacts in Settings" : "Show my contacts"}</T>
+          </Pressable>
+        )}
 
-        <View style={{ marginTop: 14, height: 52, borderRadius: 26, backgroundColor: colors.card, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 18, paddingRight: 8 }}>
+        <View style={{ marginTop: 12, height: 52, borderRadius: 26, backgroundColor: colors.card, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 18, paddingRight: 8 }}>
           <Icon name="search" size={20} />
           <TextInput
             value={query} onChangeText={setQuery} placeholder="Search or type a name" placeholderTextColor={colors.muted}
-            accessibilityLabel="Search people by name" returnKeyType="done"
-            onSubmitEditing={() => q && !matches.length && choose({ name: query.trim() })}
+            accessibilityLabel="Search contacts by name" returnKeyType="done" autoCorrect={false}
+            onSubmitEditing={() => q && !rows.length && choose(query)}
             style={{ flex: 1, height: 48, fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}
           />
         </View>
 
         <FlatList
-          data={matches}
-          keyExtractor={(p) => p.id}
+          data={rows}
+          keyExtractor={(r) => r.key}
           keyboardShouldPersistTaps="handled"
           style={{ marginTop: 8 }}
+          initialNumToRender={20}
           ListFooterComponent={
-            q && !people.some((p) => p.name.toLowerCase() === q) ? (
-              <Pressable accessibilityRole="button" onPress={() => choose({ name: query.trim() })} style={{ flexDirection: "row", alignItems: "center", gap: 14, height: 64 }}>
+            q && !rows.some((r) => r.name.toLowerCase() === q) ? (
+              <Pressable accessibilityRole="button" onPress={() => choose(query)} style={{ flexDirection: "row", alignItems: "center", gap: 14, height: 64 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
                   <Icon name="plus" size={18} stroke={2.4} />
                 </View>
@@ -82,9 +81,12 @@ export function WhoPicker({ todoId, visible, onClose }: { todoId: string; visibl
             ) : undefined
           }
           renderItem={({ item }) => (
-            <Pressable accessibilityRole="button" onPress={() => choose(item)} style={{ flexDirection: "row", alignItems: "center", gap: 14, height: 64, borderBottomWidth: 2, borderBottomColor: colors.card }}>
+            <Pressable accessibilityRole="button" onPress={() => choose(item.name)} style={{ flexDirection: "row", alignItems: "center", gap: 14, height: 64, borderBottomWidth: 2, borderBottomColor: colors.card }}>
               <Avatar name={item.name} size={44} />
-              <T w="extrabold" style={{ fontSize: 16, flex: 1 }}>{item.name}</T>
+              <View style={{ flex: 1 }}>
+                <T w="extrabold" style={{ fontSize: 16 }} numberOfLines={1}>{item.name}</T>
+                {item.sub ? <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 1 }} numberOfLines={1}>{item.sub}</T> : null}
+              </View>
               <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
             </Pressable>
           )}

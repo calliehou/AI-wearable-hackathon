@@ -1,13 +1,14 @@
 // Screen 1 · Promises list.
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RingArt } from "../components/Art";
 import { BottomNav } from "../components/BottomNav";
 import { Icon, kindIcon } from "../components/Icon";
 import { Avatar, QuoteBubble, T } from "../components/ui";
 import { WhoPicker, WhoPill } from "../components/WhoPicker";
+import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
 import type { Todo } from "../data/types";
 import { colors, kindTile } from "../theme";
@@ -15,9 +16,12 @@ import { colors, kindTile } from "../theme";
 const TODAY = ["Tonight", "Today"];
 
 export default function Promises() {
-  const { todos, person, people, setStatus } = useStore();
+  const { todos, person, people, setStatus, setTodoPerson, unknownVoices, nameVoice, ready, error, refresh, contactsStatus, askContacts } = useStore();
   const insets = useSafeAreaInsets();
   const [picking, setPicking] = useState<string | null>(null);
+  const [voice, setVoice] = useState<UnknownVoice | null>(null);
+  const [pulling, setPulling] = useState(false);
+  const pickingTodo = picking ? todos.find((t) => t.id === picking) : undefined;
   const open = todos.filter((t) => t.status === "open");
   const today = open.filter((t) => TODAY.includes(t.dueLabel));
   const featured = today.find((t) => t.kind === "money") ?? today[0];
@@ -32,7 +36,8 @@ export default function Promises() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.white }}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 4, paddingBottom: 140 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 4, paddingBottom: 140 }}
+        refreshControl={<RefreshControl refreshing={pulling} onRefresh={async () => { setPulling(true); await refresh(); setPulling(false); }} />}>
         <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, paddingHorizontal: 20 }}>
           <Pressable
             accessibilityRole="button" accessibilityLabel="Notifications"
@@ -53,6 +58,28 @@ export default function Promises() {
             {open.length} open · {today.length} due today
           </T>
         </View>
+
+        {error && (
+          <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: "#FFF1E8", borderRadius: 18, padding: 14 }}>
+            <T w="extrabold" style={{ fontSize: 14 }}>Not connected to your band</T>
+            <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 4, lineHeight: 18 }}>{error}</T>
+          </View>
+        )}
+        {!ready && !error && <ActivityIndicator style={{ marginTop: 30 }} color={colors.ink} />}
+
+        {contactsStatus === "undetermined" && ready && (
+          <Pressable accessibilityRole="button" onPress={askContacts}
+            style={{ marginHorizontal: 20, marginTop: 14, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.card, borderRadius: 20, padding: 14 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" }}>
+              <Icon name="people" size={20} color={colors.white} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T w="extrabold" style={{ fontSize: 14 }}>Connect your contacts</T>
+              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>So you can tell Sendly who each voice belongs to</T>
+            </View>
+            <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
+          </Pressable>
+        )}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 4 }}>
           {withOpen.map(({ p, n }, i) => (
@@ -86,7 +113,39 @@ export default function Promises() {
           </>
         )}
 
-        {rest.length > 0 && <T w="extrabold" style={{ fontSize: 14, marginTop: 22, marginLeft: 20 }}>This week</T>}
+        {unknownVoices.length > 0 && (
+          <>
+            <T w="extrabold" style={{ fontSize: 14, marginTop: 22, marginLeft: 20 }}>Who is this?</T>
+            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginLeft: 20, marginTop: 2 }}>Name a voice once and your band recognises it from then on.</T>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 10 }}>
+              {unknownVoices.map((v) => (
+                <Pressable key={`${v.interaction_id}-${v.speaker}`} accessibilityRole="button" accessibilityLabel={`Name the voice that said: ${v.quote}`}
+                  onPress={() => setVoice(v)}
+                  style={{ width: 240, backgroundColor: colors.card, borderRadius: 22, padding: 14, gap: 10 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <Avatar name={null} unknown size={36} />
+                    <T w="semibold" style={{ flex: 1, fontSize: 12, color: colors.muted }} numberOfLines={1}>{v.heard} · {v.title}</T>
+                  </View>
+                  <T w="semibold" style={{ fontSize: 14, lineHeight: 19 }} numberOfLines={3}>“{v.quote}”</T>
+                  <View style={{ alignSelf: "flex-start", backgroundColor: colors.ink, borderRadius: 14, paddingVertical: 6, paddingHorizontal: 12 }}>
+                    <T style={{ fontSize: 12, color: colors.white }}>Who is this?</T>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        {ready && open.length === 0 && !error && (
+          <View style={{ marginHorizontal: 20, marginTop: 22, borderRadius: 22, borderWidth: 2, borderColor: colors.line, padding: 18 }}>
+            <T w="extrabold" style={{ fontSize: 16 }}>No promises yet</T>
+            <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 6, lineHeight: 19 }}>
+              When your band hears you say “I'll send you…” or “I'll call you…”, it shows up here and your phone buzzes. Or tap the mic to add one.
+            </T>
+          </View>
+        )}
+
+        {rest.length > 0 && <T w="extrabold" style={{ fontSize: 14, marginTop: 22, marginLeft: 20 }}>{featured ? "This week" : "Open promises"}</T>}
         <View style={{ paddingHorizontal: 16, marginTop: 12, gap: 10 }}>
           {rest.map((t) => (
             <Row key={t.id} todo={t} name={person(t.personId)?.name ?? null} onDone={() => setStatus(t.id, "done")} onWho={() => setPicking(t.id)} />
@@ -94,7 +153,10 @@ export default function Promises() {
         </View>
       </ScrollView>
       <BottomNav mic />
-      {picking && <WhoPicker todoId={picking} visible onClose={() => setPicking(null)} />}
+      <WhoPicker visible={!!picking} quote={pickingTodo?.quote} onClose={() => setPicking(null)}
+        onPick={(name) => picking && setTodoPerson(picking, { name })} />
+      <WhoPicker visible={!!voice} title="Whose voice is this?" quote={voice?.quote} onClose={() => setVoice(null)}
+        onPick={(name) => voice && nameVoice(voice, name)} />
     </View>
   );
 }
