@@ -23,3 +23,7 @@ node_modules
 # Vexo Open kit (reference copy, cloned locally, never committed)
 vexo-open-kit/
 .venv/
+
+# Recorded conversations (real people): never committed
+data/interactions.json
+data/*.tmp
