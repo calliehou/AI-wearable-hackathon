@@ -137,6 +137,20 @@ export default function MyOrbit() {
             <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 20 }}>Nothing due today. Your band is listening for new promises.</T>
           )}
 
+          <Section title={`This week · ${week.length}`} right={orderButton("week", week.length)} />
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            {week.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
+              order={ordering === "week" ? { first: i === 0, last: i === week.length - 1, move: (d) => move(week, i, d) } : undefined} />)}
+            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
+          </View>
+
+          <Section title={`Later · ${other.filter((t) => t.status === "open").length}`} right={orderButton("other", other.length)} />
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            {other.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
+              order={ordering === "other" ? { first: i === 0, last: i === other.length - 1, move: (d) => move(other, i, d) } : undefined} />)}
+            {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing later.</T>}
+          </View>
+
           {s.unknownVoices.length > 0 && (
             <>
               <Section title="Who is this?" />
@@ -159,19 +173,6 @@ export default function MyOrbit() {
             </>
           )}
 
-          <Section title={`This week · ${week.length}`} right={orderButton("week", week.length)} />
-          <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {week.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
-              order={ordering === "week" ? { first: i === 0, last: i === week.length - 1, move: (d) => move(week, i, d) } : undefined} />)}
-            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
-          </View>
-
-          <Section title={`Other promises · ${other.filter((t) => t.status === "open").length}`} right={orderButton("other", other.length)} />
-          <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {other.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
-              order={ordering === "other" ? { first: i === 0, last: i === other.length - 1, move: (d) => move(other, i, d) } : undefined} />)}
-            {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>No other promises.</T>}
-          </View>
         </View>
       </ScrollView>
       <BottomNav />

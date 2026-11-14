@@ -52,6 +52,10 @@ Your job:
    - `amount`: the number for money promises, else null.
    - `due_label`: "Today", "Tonight", "Tmrw", a weekday like "Fri", "Next week", or "Soon" if none was said.
    - `due_detail`: a time or date detail like "5:00 PM" or "Her birthday" if said, else null.
+   - `due_date`: the day as "YYYY-MM-DD" when a day was said or clearly implied ("Friday",
+     "tomorrow", "the 20th"; use today's date given above), else null. "Next week" with no day: null.
+   - `due_time`: "HH:MM" in 24 hours when a time was said ("at 5" in the afternoon -> 17:00,
+     "tonight at 8" -> 20:00), else null.
    - `confidence`: 0 to 1, how sure you are this is a real commitment.
    Most conversations have no promises: then return an empty list.
 

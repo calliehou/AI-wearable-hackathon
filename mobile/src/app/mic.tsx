@@ -104,6 +104,7 @@ export default function Mic() {
     try {
       await s.addPromises(found.map((p) => ({
         title: p.title, quote, kind: p.kind, amount: p.amount, due_label: p.due_label, due_detail: p.due_detail, person_name: p.person_name,
+        due_date: p.due_date, due_time: p.due_time,
       })));
       router.replace("/");
     } catch (e) {

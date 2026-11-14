@@ -36,7 +36,8 @@
           "microphonePermission": "Peri listens when you tap the mic so you can add a promise by voice."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-community/datetimepicker"
     ],
     "scheme": "peri",
     "experiments": {

@@ -40,9 +40,11 @@ SCHEMA = {
                     "amount": {"type": ["number", "null"]},
                     "due_label": {"type": "string"},
                     "due_detail": {"type": ["string", "null"]},
+                    "due_date": {"type": ["string", "null"]},
+                    "due_time": {"type": ["string", "null"]},
                     "confidence": {"type": "number"},
                 },
-                "required": ["for_name", "to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "confidence"],
+                "required": ["for_name", "to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "due_date", "due_time", "confidence"],
                 "additionalProperties": False,
             },
         },
@@ -50,6 +52,11 @@ SCHEMA = {
     "required": ["title", "summary", "people", "topics", "follow_ups", "promises"],
     "additionalProperties": False,
 }
+
+
+def _today():
+    import datetime
+    return datetime.date.today().strftime("%A %Y-%m-%d")
 
 
 def load_env_file():
@@ -82,12 +89,13 @@ def read_conversation(turns, known_people, voices=None, recent=""):
     heard = [("Speaker %d = %s%s" % (n, v["name"], " (the wearer)" if v.get("is_wearer") else ""))
              for n, v in sorted(voices.items()) if v.get("name") and n in speakers]
     user = (
+        "Today is %s.\n"
         "The wearer is: %s\n"
         "People the wearer has met before: %s\n"
         "Speakers in this conversation: %s\n"
         "Voices already identified earlier in this same recording (same voice, same number): %s\n"
         "Recent conversations, for context only (who \"him\"/\"her\" may be):\n%s\n\n"
-        "Conversation:\n%s" % (config.WEARER, known, ", ".join(str(s) for s in speakers),
+        "Conversation:\n%s" % (_today(), config.WEARER, known, ", ".join(str(s) for s in speakers),
                                 "; ".join(heard) or "(none)", recent or "(none)", transcript_text(turns))
     )
     client = anthropic.Anthropic()
@@ -159,7 +167,8 @@ alternatives is one promise.
 Follow the same field rules as always: for_name is the person as the wearer named them (or null
 if they said "you"), to_speaker is null here, a short title with the person, kind money/gift/task/plan/call,
 amount, due_label ("Today", "Tonight", "Tmrw", a weekday, "Next week" or "Soon"), due_detail,
-confidence 0-1. If nothing is a clear commitment, return an empty list."""
+due_date ("YYYY-MM-DD" when a day was said or clearly implied, else null), due_time ("HH:MM" 24h
+when a time was said, e.g. "tonight at 8" -> 20:00, else null), confidence 0-1. If nothing is a clear commitment, return an empty list."""
 
 
 def quick_promises(lines, known_people, recent=""):
@@ -174,8 +183,8 @@ def quick_promises(lines, known_people, recent=""):
         thinking={"type": "adaptive"},
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": QUICK_SCHEMA}},
         system=QUICK_SYSTEM % config.WEARER,
-        messages=[{"role": "user", "content": "People the wearer knows: %s\nRecent conversations:\n%s\n\nJust now:\n%s" % (
-            ", ".join(known_people) or "(none)", recent or "(none)", lines)}],
+        messages=[{"role": "user", "content": "Today is %s.\nPeople the wearer knows: %s\nRecent conversations:\n%s\n\nJust now:\n%s" % (
+            _today(), ", ".join(known_people) or "(none)", recent or "(none)", lines)}],
     )
     if response.stop_reason in ("refusal", "max_tokens"):
         return []

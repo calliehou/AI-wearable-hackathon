@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 const TYPES = ["Money", "Gift", "Task", "Plan"];
 const STATUS = ["open", "done", "dismissed"];
 
-// Body (all optional): { person_name, status, type, due_label, due_detail, amount, title }
+// Body (all optional): { person_name, status, type, due_label, due_detail, amount, title, due_date "YYYY-MM-DD", due_time "HH:MM" }
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const b = await req.json().catch(() => null);
   const ok = b && typeof b === "object"
@@ -16,7 +16,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     && (b.due_label === undefined || typeof b.due_label === "string")
     && (b.due_detail === undefined || b.due_detail === null || typeof b.due_detail === "string")
     && (b.amount === undefined || b.amount === null || typeof b.amount === "number")
-    && (b.title === undefined || typeof b.title === "string");
+    && (b.title === undefined || typeof b.title === "string")
+    && (b.due_date === undefined || b.due_date === null || /^\d{4}-\d{2}-\d{2}$/.test(b.due_date))
+    && (b.due_time === undefined || b.due_time === null || /^\d{2}:\d{2}$/.test(b.due_time));
   if (!ok) return NextResponse.json({ error: "bad change" }, { status: 400 });
   const item = await updatePromise((await params).id, b);
   return item ? NextResponse.json(item) : NextResponse.json({ error: "not found" }, { status: 404 });

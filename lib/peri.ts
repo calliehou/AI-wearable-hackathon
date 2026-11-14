@@ -33,6 +33,8 @@ export type StoredPromise = {
   status: "open" | "done" | "dismissed";
   note?: string | null;
   rank?: number | null; // your order (lower first); unset = by date
+  due_date?: string | null; // "2026-11-20" when known (said in the conversation or set in the app)
+  due_time?: string | null; // "17:00" when known
 };
 
 // The design's four kinds of promise.
@@ -43,6 +45,29 @@ export function typeOf(kind: Kind): PromiseType {
   return "Task";
 }
 const KIND_FOR_TYPE: Record<PromiseType, Kind> = { Money: "money", Gift: "gift", Task: "task", Plan: "plan" };
+
+// "Today"/"Tonight"/"Tmrw"/"Fri"/"Nov 28" and "5:00 PM" from a date and time, as of now.
+export function dueLabels(date: string | null | undefined, time: string | null | undefined) {
+  let label: string | null = null;
+  let detail: string | null = null;
+  if (time && /^\d{2}:\d{2}$/.test(time)) {
+    const [h, m] = time.split(":").map(Number);
+    detail = new Date(2000, 0, 1, h, m).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [y, mo, d] = date.split("-").map(Number);
+    const due = new Date(y, mo - 1, d);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.round((due.getTime() - today.getTime()) / 86400000);
+    const evening = time ? Number(time.slice(0, 2)) >= 18 : false;
+    if (days < 0) label = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    else if (days === 0) label = evening ? "Tonight" : "Today";
+    else if (days === 1) label = "Tmrw";
+    else if (days < 7) label = due.toLocaleDateString("en-US", { weekday: "short" });
+    else label = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+  return { label, detail };
+}
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
@@ -198,7 +223,8 @@ export async function snapshot() {
 
   const todos = stored
     .filter((p) => p.status !== "dismissed")
-    .map((p) => ({
+    .map((p) => ({ p, when: dueLabels(p.due_date, p.due_time) }))
+    .map(({ p, when }) => ({
       id: p.id,
       title: p.title,
       quote: p.quote,
@@ -209,8 +235,10 @@ export async function snapshot() {
       personSource: p.person_source ?? (p.person_name ? "voice" : null),
       amount: p.amount ?? undefined,
       note: p.note ?? undefined,
-      dueLabel: p.due_label,
-      dueDetail: p.due_detail ?? undefined,
+      dueLabel: when.label ?? p.due_label,
+      dueDetail: when.detail ?? p.due_detail ?? undefined,
+      dueDate: p.due_date ?? null,
+      dueTime: p.due_time ?? null,
       heardLabel: `heard ${ago(p.heard_at)}`,
       heardAt: clock(p.heard_at),
       heardIso: p.heard_at,
@@ -269,7 +297,7 @@ export async function snapshot() {
 
 export async function updatePromise(id: string, change: {
   person_name?: string | null; status?: StoredPromise["status"]; type?: PromiseType; due_label?: string; due_detail?: string | null;
-  amount?: number | null; title?: string;
+  amount?: number | null; title?: string; due_date?: string | null; due_time?: string | null;
 }) {
   const items = await readPromises();
   const pr = items.find((p) => p.id === id);
@@ -279,6 +307,14 @@ export async function updatePromise(id: string, change: {
   if (change.due_label) pr.due_label = change.due_label.slice(0, 20);
   if (change.due_detail !== undefined) pr.due_detail = change.due_detail;
   if (change.amount !== undefined) pr.amount = change.amount;
+  if (change.due_date !== undefined) pr.due_date = change.due_date;
+  if (change.due_time !== undefined) pr.due_time = change.due_time;
+  if (change.due_date !== undefined || change.due_time !== undefined) {
+    const when = dueLabels(pr.due_date, pr.due_time);
+    if (when.label) pr.due_label = when.label;
+    else if (change.due_date === null) pr.due_label = "Soon";
+    pr.due_detail = when.detail ?? (change.due_time === null ? null : pr.due_detail);
+  }
   if (change.title) pr.title = change.title.slice(0, 80);
   if (change.person_name !== undefined) {
     const name = change.person_name?.trim().slice(0, 60) || null;
@@ -310,6 +346,7 @@ export async function nameVoice(interactionId: string, speaker: number, name: st
 
 export async function addPromise(b: {
   title: string; quote: string; kind?: Kind; amount?: number | null; due_label?: string; due_detail?: string | null; person_name?: string | null;
+  due_date?: string | null; due_time?: string | null;
 }) {
   const kinds: Kind[] = ["money", "gift", "task", "plan", "send", "call", "bring", "meet", "other"];
   const item: StoredPromise = {
@@ -326,6 +363,8 @@ export async function addPromise(b: {
     speaker: null,
     person_name: b.person_name?.trim() || null,
     status: "open",
+    due_date: validDate(b.due_date),
+    due_time: validTime(b.due_time),
   };
   await writePromises([item, ...(await readPromises())]);
   return item;
@@ -441,3 +480,6 @@ export async function reorderPromises(ids: string[]) {
   await writePromises(items);
   return { ok: true, count: pos.size };
 }
+
+export const validDate = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+export const validTime = (v: unknown) => (typeof v === "string" && /^\d{2}:\d{2}$/.test(v) ? v : null);

@@ -130,6 +130,8 @@ def save_promises(item, promises, min_confidence=0.6):
             "amount": pr.get("amount"),
             "due_label": pr.get("due_label") or "Soon",
             "due_detail": pr.get("due_detail"),
+            "due_date": pr.get("due_date"),
+            "due_time": pr.get("due_time"),
             "confidence": pr.get("confidence", 0.8),
             "speaker": to,                            # voice it was promised to, in that interaction
             "person_name": person,

@@ -38,6 +38,8 @@ export type Todo = {
   note?: string;
   dueLabel: string; // "Tonight", "Mon"
   dueDetail?: string; // "8:00 PM"
+  dueDate: string | null; // "2026-11-20" when known
+  dueTime: string | null; // "17:00" when known
   heardLabel: string; // "heard 2h ago"
   heardAt: string; // "9:41 AM"
   heardIso: string;

@@ -8,9 +8,20 @@ import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, PrimaryButton, T, TextButton, money } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
 import { confirmDelete } from "../../components/confirmDelete";
+import { dueDateTime, WhenEditor } from "../../components/WhenEditor";
 import { useStore } from "../../data/store";
 import type { PromiseType } from "../../data/types";
 import { colors, TYPE_TONE } from "../../theme";
+
+// Seconds until the reminder: an hour before the due time, the morning of the due day,
+// or (no day or it's already past) one hour from now.
+function reminderSeconds(date: string | null, time: string | null) {
+  if (!date && !time) return 3600;
+  const due = dueDateTime(date, time);
+  const at = due.getTime() - (time ? 3600_000 : 0);
+  const now = Date.now();
+  return at > now + 60_000 ? Math.round((at - now) / 1000) : 3600;
+}
 
 const TYPES: PromiseType[] = ["Money", "Gift", "Task", "Plan"];
 
@@ -27,10 +38,12 @@ export default function PromiseHeard() {
 
   async function save() {
     if (remind) {
-      // A phone reminder (the band has no vibration motor): one hour from now as a gentle nudge.
+      // A phone reminder (the band has no vibration motor): at the promise's day and time if
+      // known (an hour before, if that's still ahead), otherwise in an hour as a gentle nudge.
+      const seconds = reminderSeconds(t!.dueDate, t!.dueTime);
       await Notifications.scheduleNotificationAsync({
-        content: { title: p ? `Keep your promise to ${p.name.split(" ")[0]}` : "Keep your promise", body: `${t!.title} · due ${t!.dueLabel.toLowerCase()}`, data: { todoId: t!.id } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3600 },
+        content: { title: p ? `Keep your promise to ${p.name.split(" ")[0]}` : "Keep your promise", body: `${t!.title} · due ${t!.dueLabel.toLowerCase()}${t!.dueDetail ? " " + t!.dueDetail : ""}`, data: { todoId: t!.id } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds },
       }).catch(() => undefined);
     }
     if (kind === "Money" && p) router.push({ pathname: "/transfer/[id]", params: { id: t!.id } });
@@ -93,9 +106,12 @@ export default function PromiseHeard() {
           </View>
         </Pressable>
 
+        <T w="extrabold" style={{ fontSize: 15, marginTop: 20 }}>When</T>
+        <WhenEditor key={`${t.dueDate}-${t.dueTime}`} date={t.dueDate} time={t.dueTime} onChange={(c) => s.changePromise(t.id, c)} />
+
         <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 22, backgroundColor: colors.card }}>
           <Icon name="bell" size={18} stroke={2.2} />
-          <T w="extrabold" style={{ flex: 1, fontSize: 14 }}>Remind me on my phone</T>
+          <T w="extrabold" style={{ flex: 1, fontSize: 14 }}>Remind me on my phone{t.dueTime ? " · 1 h before" : ""}</T>
           <Switch value={remind} onValueChange={setRemind} trackColor={{ true: colors.ink, false: colors.handle }} accessibilityLabel="Remind me on my phone" />
         </View>
 

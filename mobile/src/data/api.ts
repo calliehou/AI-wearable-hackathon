@@ -64,6 +64,7 @@ export const fetchSnapshot = () => call<Snapshot>("/api/peri", { cache: "no-stor
 export type PromiseChange = {
   person_name?: string | null; status?: Todo["status"]; type?: PromiseType; due_label?: string;
   due_detail?: string | null; amount?: number | null; title?: string;
+  due_date?: string | null; due_time?: string | null;
 };
 export const updatePromise = (id: string, change: PromiseChange) => call(`/api/peri/promises/${id}`, json("PATCH", change));
 
@@ -76,6 +77,7 @@ export const nameVoice = (v: UnknownVoice, name: string) =>
 
 export type NewPromise = {
   title: string; quote: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null; person_name: string | null;
+  due_date?: string | null; due_time?: string | null;
 };
 export const createPromise = (p: NewPromise) => call<{ id: string }>("/api/peri/promises", json("POST", p));
 
@@ -116,7 +118,10 @@ export async function fetchRecap(name: string): Promise<Recap> {
 
 // ---- hold mic: tell Peri one or more promises
 
-export type Parsed = { person_name: string | null; title: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null };
+export type Parsed = {
+  person_name: string | null; title: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null;
+  due_date: string | null; due_time: string | null;
+};
 export async function parsePromises(input: { uri?: string; text?: string }, people: string[]): Promise<{ quote: string; promises: Parsed[] }> {
   const form = new FormData();
   form.append("people", people.join(", "));
