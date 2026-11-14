@@ -117,8 +117,7 @@ middleware.ts        Allows the Expo web preview (localhost:8081) to call the AP
 ### Prerequisites
 
 - Node.js 20 or newer and npm
-- For the phone: the **Expo Go** app, with phone and computer on the **same Wi-Fi**
-- For the band listener only: Python 3.10+ and a Vexo Band (or use `--sim` / `--say`)
+- For the band listener only: Python 3.10+ and a wearable (or use `--sim` / `--say`)
 - API keys (see [Environment variables](#environment-variables)). Without keys the app still
   opens and shows empty or sample data, but AI features return an error.
 
@@ -269,7 +268,7 @@ All routes are under `http://<server>:3000/api`. The phone app's client is
 | Name | Role | Email |
 |---|---|---|
 | **Callie Hou** | Design engineering, UI and pipeline | [hcallie@stanford.edu](mailto:hcallie@stanford.edu) |
-| **Mapa Garzon** | Business, data, band integration, prompts and pitch | [mpgarzon@stanford.edu](mailto:mpgarzon@stanford.edu) |
+| **Mapa Garzon** | Business, data, band integration | [mpgarzon@stanford.edu](mailto:mpgarzon@stanford.edu) |
 
 Questions, ideas or want to try Peri? Feel free to contact us.
 
