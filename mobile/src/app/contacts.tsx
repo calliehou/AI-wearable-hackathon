@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, typeIcon } from "../components/Icon";
 import { Avatar, RoundButton, T } from "../components/ui";
+import { confirmDelete } from "../components/confirmDelete";
 import { useStore } from "../data/store";
 import type { Person } from "../data/types";
 import { colors, fonts, TYPE_TONE } from "../theme";
@@ -82,7 +83,8 @@ export default function Contacts() {
             );
           })}
           {unknownOpen.map((t) => (
-            <Pressable key={t.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+            <Pressable key={t.id} accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+              onLongPress={() => confirmDelete(t, s.deletePromise)}
               style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 66, paddingHorizontal: 12, borderRadius: 20, backgroundColor: colors.card }}>
               <Avatar name={null} unknown size={42} />
               <View style={{ flex: 1 }}>

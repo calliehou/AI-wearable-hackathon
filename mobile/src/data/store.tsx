@@ -31,6 +31,7 @@ type Store = {
   nameVoice: (voice: api.UnknownVoice, name: string) => Promise<void>;
   setStatus: (todoId: string, status: Todo["status"]) => Promise<void>;
   changePromise: (todoId: string, change: api.PromiseChange) => Promise<void>;
+  deletePromise: (todoId: string) => Promise<void>;
   addPromises: (items: api.NewPromise[]) => Promise<void>;
   createCircle: (name: string, color: string) => Promise<void>;
   setMembership: (person: string, circle: string, member: boolean) => Promise<void>;
@@ -192,6 +193,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       changePromise: (todoId, change) => {
         patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, ...(change.type ? { type: change.type } : {}) } : t)) }));
         return thenRefresh(api.updatePromise(todoId, change));
+      },
+      deletePromise: (todoId) => {
+        patchLocal((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== todoId) }));
+        return thenRefresh(api.deletePromise(todoId));
       },
       addPromises: async (items) => {
         for (const p of items) {

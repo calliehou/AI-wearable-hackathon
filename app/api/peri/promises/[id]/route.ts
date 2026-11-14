@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updatePromise } from "@/lib/peri";
+import { deletePromise, updatePromise } from "@/lib/peri";
 
 export const dynamic = "force-dynamic";
 
@@ -20,4 +20,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!ok) return NextResponse.json({ error: "bad change" }, { status: 400 });
   const item = await updatePromise((await params).id, b);
   return item ? NextResponse.json(item) : NextResponse.json({ error: "not found" }, { status: 404 });
+}
+
+// Delete a promise for good.
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ok = await deletePromise((await params).id);
+  return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "not found" }, { status: 404 });
 }

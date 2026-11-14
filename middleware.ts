@@ -12,7 +12,7 @@ export function middleware(req: NextRequest) {
       status: 204,
       headers: allowed ? {
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       } : {},
     });

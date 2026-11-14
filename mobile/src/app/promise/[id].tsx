@@ -2,11 +2,12 @@
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, PrimaryButton, T, TextButton, money } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
+import { confirmDelete } from "../../components/confirmDelete";
 import { useStore } from "../../data/store";
 import type { PromiseType } from "../../data/types";
 import { colors, TYPE_TONE } from "../../theme";
@@ -103,10 +104,11 @@ export default function PromiseHeard() {
         {t.status === "open" && kind !== "Money" && (
           <TextButton label="Mark as kept" onPress={() => { s.setStatus(t.id, "done"); router.replace({ pathname: "/kept/[id]", params: { id: t.id } }); }} />
         )}
-        <TextButton label="That wasn't a promise" onPress={() => Alert.alert("Remove this promise?", "It disappears from your orbit.", [
-          { text: "Cancel", style: "cancel" },
-          { text: "Remove", style: "destructive", onPress: () => { s.setStatus(t.id, "dismissed"); router.back(); } },
-        ])} />
+        <Pressable accessibilityRole="button" onPress={() => confirmDelete(t, s.deletePromise, () => router.back())}
+          style={{ height: 44, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
+          <Icon name="close" size={14} color="#C2410C" stroke={2.6} />
+          <T style={{ fontSize: 14, color: "#C2410C" }}>Delete promise</T>
+        </Pressable>
       </ScrollView>
       <WhoPicker key={String(picking)} visible={picking} quote={t.quote}
         title={t.personSource === "named" ? `Which ${t.personName}?` : undefined}

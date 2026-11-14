@@ -354,3 +354,12 @@ export async function overview() {
   const talks = (await realInteractions()).slice(0, 25);
   return { snap, talks };
 }
+
+// Remove a promise for good (the app asks first).
+export async function deletePromise(id: string) {
+  const items = await readPromises();
+  const left = items.filter((p) => p.id !== id);
+  if (left.length === items.length) return false;
+  await writePromises(left);
+  return true;
+}

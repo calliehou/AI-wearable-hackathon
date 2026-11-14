@@ -9,6 +9,7 @@ import { Icon, PeriMark, typeIcon } from "../components/Icon";
 import { Centered, Ring } from "../components/Orbit";
 import { Avatar, Pill, Section, T } from "../components/ui";
 import { WhoPicker } from "../components/WhoPicker";
+import { confirmDelete } from "../components/confirmDelete";
 import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
 import type { Person, Todo } from "../data/types";
@@ -157,7 +158,8 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
   const s = useStore();
   const p = s.person(todo.personId);
   return (
-    <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+    <Pressable accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+      onLongPress={() => confirmDelete(todo, s.deletePromise)}
       style={{ width: 300, borderRadius: 26, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, overflow: "hidden",
         shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
       <View style={{ height: 150, backgroundColor: CARD_TONE[todo.type], alignItems: "center", justifyContent: "center" }}>
@@ -205,7 +207,8 @@ function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
         style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, borderColor: done ? colors.ink : colors.greyRing, backgroundColor: done ? colors.ink : colors.white, alignItems: "center", justifyContent: "center" }}>
         {done && <Icon name="tick" size={14} color={colors.white} stroke={3} />}
       </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+      <Pressable accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+        onLongPress={() => confirmDelete(todo, s.deletePromise)}
         style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingVertical: 8 }}>
         <Avatar name={p?.name ?? null} unknown={!p} size={38} color={s.personColor(p)} />
         <View style={{ flex: 1, minWidth: 0 }}>

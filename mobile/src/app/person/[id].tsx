@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, Pill, T } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
+import { confirmDelete } from "../../components/confirmDelete";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
 import { colors, TYPE_TONE } from "../../theme";
@@ -137,7 +138,8 @@ export default function PersonScreen() {
               : t.type === "Gift" ? router.push({ pathname: "/gifts/[id]", params: { id: p.id } })
               : router.push({ pathname: "/promise/[id]", params: { id: t.id } });
             return (
-              <Pressable key={t.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+              <Pressable key={t.id} accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+                onLongPress={() => confirmDelete(t, s.deletePromise)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 64, borderRadius: 20, backgroundColor: colors.card, paddingHorizontal: 14 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: TYPE_TONE[t.type], alignItems: "center", justifyContent: "center" }}>
                   <Icon name={typeIcon[t.type]} size={18} stroke={2.4} />

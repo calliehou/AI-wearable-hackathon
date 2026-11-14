@@ -66,6 +66,8 @@ export type PromiseChange = {
 };
 export const updatePromise = (id: string, change: PromiseChange) => call(`/api/peri/promises/${id}`, json("PATCH", change));
 
+export const deletePromise = (id: string) => call(`/api/peri/promises/${id}`, { method: "DELETE" });
+
 export const nameVoice = (v: UnknownVoice, name: string) =>
   call("/api/peri/voices", json("POST", { interaction_id: v.interaction_id, speaker: v.speaker, name }));
 

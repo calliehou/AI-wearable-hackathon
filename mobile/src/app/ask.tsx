@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, typeIcon } from "../components/Icon";
 import { Avatar, T } from "../components/ui";
+import { confirmDelete } from "../components/confirmDelete";
 import { askPeri } from "../data/api";
 import { useStore } from "../data/store";
 import { colors, fonts, TYPE_TONE } from "../theme";
@@ -89,7 +90,8 @@ export default function Ask() {
               <T w="extrabold" style={{ fontSize: 15, marginTop: 4 }}>I saved {todays.length} promise{todays.length === 1 ? "" : "s"}. Anything to fix?</T>
               <View style={{ gap: 6, marginTop: 10 }}>
                 {todays.map((t) => (
-                  <Pressable key={t.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+                  <Pressable key={t.id} accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+                    onLongPress={() => confirmDelete(t, s.deletePromise)}
                     style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.white, borderRadius: 16, padding: 10 }}>
                     <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: TYPE_TONE[t.type], alignItems: "center", justifyContent: "center" }}>
                       <Icon name={typeIcon[t.type]} size={15} stroke={2.4} />
