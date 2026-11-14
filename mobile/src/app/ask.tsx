@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, typeIcon } from "../components/Icon";
 import { Avatar, T } from "../components/ui";
+import { useConfirmDelete } from "../components/Confirm";
 import { askPeri } from "../data/api";
 import { useStore } from "../data/store";
 import { colors, fonts, TYPE_TONE } from "../theme";
@@ -16,8 +17,9 @@ const REC_TONE: Record<string, string> = { drift: "#CDEBFB", due: "#FBDDD9" };
 
 export default function Ask() {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
-  const { about } = useLocalSearchParams<{ about?: string }>();
+  const { about, ideas } = useLocalSearchParams<{ about?: string; ideas?: string }>();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState(about ? `What could I do with ${about} this weekend?` : "");
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,18 @@ export default function Ask() {
 
   useEffect(() => { scroll.current?.scrollToEnd({ animated: true }); }, [msgs.length, busy]);
 
+  // Opened from a promise's "Get ideas": ask right away, once.
+  const asked = useRef(false);
+  useEffect(() => {
+    const t = ideas ? s.todo(ideas) : undefined;
+    if (!t || asked.current) return;
+    asked.current = true;
+    const first = t.personName?.split(" ")[0];
+    const who = first && !t.title.includes(first) ? ` for ${first}` : "";
+    send(`Any ideas for “${t.title}”${who}?`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened promise
+  }, [ideas, s]);
+
   async function send(text?: string) {
     const message = (text ?? draft).trim();
     if (!message || busy) return;
@@ -38,7 +52,7 @@ export default function Ask() {
     setMsgs([...history, { role: "user", text: message }]);
     setBusy(true);
     try {
-      const a = await askPeri(message, history);
+      const a = await askPeri(message, history, ideas);
       setMsgs((m) => [...m, { role: "peri", text: a.reply }]);
       if (a.applied.length) s.refresh();
     } catch (e) {
@@ -89,7 +103,8 @@ export default function Ask() {
               <T w="extrabold" style={{ fontSize: 15, marginTop: 4 }}>I saved {todays.length} promise{todays.length === 1 ? "" : "s"}. Anything to fix?</T>
               <View style={{ gap: 6, marginTop: 10 }}>
                 {todays.map((t) => (
-                  <Pressable key={t.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+                  <Pressable key={t.id} accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+                    onLongPress={() => confirmDelete(t)}
                     style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.white, borderRadius: 16, padding: 10 }}>
                     <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: TYPE_TONE[t.type], alignItems: "center", justifyContent: "center" }}>
                       <Icon name={typeIcon[t.type]} size={15} stroke={2.4} />

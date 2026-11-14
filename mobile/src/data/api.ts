@@ -1,6 +1,7 @@
 // Talks to the web app running on the Mac (npm run dev, port 3000). In Expo Go the phone
 // already reaches the Mac for the app bundle, so the same address is used here.
 import Constants from "expo-constants";
+import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import type { Circle, Kind, Person, PromiseType, Todo } from "./types";
 
@@ -63,20 +64,32 @@ export const fetchSnapshot = () => call<Snapshot>("/api/peri", { cache: "no-stor
 export type PromiseChange = {
   person_name?: string | null; status?: Todo["status"]; type?: PromiseType; due_label?: string;
   due_detail?: string | null; amount?: number | null; title?: string;
+  due_date?: string | null; due_time?: string | null;
 };
 export const updatePromise = (id: string, change: PromiseChange) => call(`/api/peri/promises/${id}`, json("PATCH", change));
+
+export const reorderPromises = (ids: string[]) => call("/api/peri/promises/order", json("POST", { ids }));
+
+export const deletePromise = (id: string) => call(`/api/peri/promises/${id}`, { method: "DELETE" });
 
 export const nameVoice = (v: UnknownVoice, name: string) =>
   call("/api/peri/voices", json("POST", { interaction_id: v.interaction_id, speaker: v.speaker, name }));
 
 export type NewPromise = {
   title: string; quote: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null; person_name: string | null;
+  due_date?: string | null; due_time?: string | null;
 };
 export const createPromise = (p: NewPromise) => call<{ id: string }>("/api/peri/promises", json("POST", p));
 
 export const createCircle = (name: string, color: string) => call("/api/peri/circles", json("POST", { name, color }));
 export const setMembership = (person: string, circle: string, member: boolean) =>
   call("/api/peri/circles/members", json("POST", { person, circle, member }));
+
+export const setPayee = (person: string, change: import("./types").Payee) => call("/api/peri/payee", json("POST", { person, ...change }));
+
+export const renamePerson = (from: string, to: string) => call<{ id: string; name: string }>("/api/peri/people/rename", json("POST", { from, to }));
+
+export const setOrbit = (person: string, ring: 1 | 2 | 3 | null) => call("/api/peri/people/orbit", json("POST", { person, ring }));
 
 export const pauseBand = (paused: boolean) => call("/api/peri/band", json("POST", { paused }));
 
@@ -93,8 +106,9 @@ export type Gifts = { occasion: string | null; said: string | null; ideas: { tit
 export const fetchGifts = (name: string) => call<Gifts>(`/api/peri/gifts?name=${encodeURIComponent(name)}`, undefined, 60000);
 
 export type AskAnswer = { reply: string; applied: { id: string; title: string; due_label: string; status: string }[] };
-export const askPeri = (message: string, history: { role: "user" | "peri"; text: string }[]) =>
-  call<AskAnswer>("/api/peri/ask", json("POST", { message, history }), 60000);
+// ideasFor: a promise id, so Peri can recommend things for it (recipes, places, gifts…).
+export const askPeri = (message: string, history: { role: "user" | "peri"; text: string }[], ideasFor?: string) =>
+  call<AskAnswer>("/api/peri/ask", json("POST", { message, history, ideas_for: ideasFor }), 60000);
 
 // Spoken recap of the last week with someone (ElevenLabs on the Mac).
 export type Recap = { text: string; audio: string | null; note?: string };
@@ -105,11 +119,16 @@ export async function fetchRecap(name: string): Promise<Recap> {
 
 // ---- hold mic: tell Peri one or more promises
 
-export type Parsed = { person_name: string | null; title: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null };
+export type Parsed = {
+  person_name: string | null; title: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null;
+  due_date: string | null; due_time: string | null;
+};
 export async function parsePromises(input: { uri?: string; text?: string }, people: string[]): Promise<{ quote: string; promises: Parsed[] }> {
   const form = new FormData();
   form.append("people", people.join(", "));
   if (input.text) form.append("text", input.text);
-  if (input.uri) form.append("audio", { uri: input.uri, name: "promise.m4a", type: "audio/mp4" } as unknown as Blob);
+  // Expo's fetch needs a real Blob here (the old { uri, name, type } object is "Unsupported
+  // FormDataPart implementation"); expo-file-system's File is one.
+  if (input.uri) form.append("audio", new File(input.uri), "promise.m4a");
   return call("/api/voice-todo", { method: "POST", body: form }, 45000);
 }

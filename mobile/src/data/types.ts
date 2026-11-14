@@ -14,10 +14,16 @@ export type Person = {
   open: number;
   kept: number;
   ring: 1 | 2 | 3; // orbit: 1 inner, 2 middle, 3 outer / drifting
+  ringChosen: boolean; // true when you picked the orbit yourself
   drifting: boolean;
   quietFor: string | null;
   circles: string[];
+  payee: Payee;
 };
+
+// Payment usernames for a person; payments are approved in that app, never inside Peri.
+export type Payee = { venmo?: string; cashapp?: string; paypal?: string; method?: PayMethod };
+export type PayMethod = "venmo" | "cashapp" | "paypal";
 
 export type Todo = {
   id: string;
@@ -27,16 +33,20 @@ export type Todo = {
   type: PromiseType;
   personId: string | null; // null: the band didn't catch who it was. Pick them from contacts.
   personName: string | null;
+  personSource: "voice" | "named" | "picked" | null; // "named": you said the name; pick them from contacts
   amount?: number;
   note?: string;
   dueLabel: string; // "Tonight", "Mon"
   dueDetail?: string; // "8:00 PM"
+  dueDate: string | null; // "2026-11-20" when known
+  dueTime: string | null; // "17:00" when known
   heardLabel: string; // "heard 2h ago"
   heardAt: string; // "9:41 AM"
   heardIso: string;
   confidence: number;
   status: "open" | "done" | "dismissed";
   voiceKnown: boolean;
+  rank: number | null; // your order (lower first); null = by date
 };
 
 export type Circle = { name: string; color: string };

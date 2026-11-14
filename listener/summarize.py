@@ -32,6 +32,7 @@ SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
+                    "for_name": {"type": ["string", "null"]},
                     "to_speaker": {"type": ["integer", "null"]},
                     "title": {"type": "string"},
                     "quote": {"type": "string"},
@@ -39,9 +40,11 @@ SCHEMA = {
                     "amount": {"type": ["number", "null"]},
                     "due_label": {"type": "string"},
                     "due_detail": {"type": ["string", "null"]},
+                    "due_date": {"type": ["string", "null"]},
+                    "due_time": {"type": ["string", "null"]},
                     "confidence": {"type": "number"},
                 },
-                "required": ["to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "confidence"],
+                "required": ["for_name", "to_speaker", "title", "quote", "kind", "amount", "due_label", "due_detail", "due_date", "due_time", "confidence"],
                 "additionalProperties": False,
             },
         },
@@ -49,6 +52,11 @@ SCHEMA = {
     "required": ["title", "summary", "people", "topics", "follow_ups", "promises"],
     "additionalProperties": False,
 }
+
+
+def _today():
+    import datetime
+    return datetime.date.today().strftime("%A %Y-%m-%d")
 
 
 def load_env_file():
@@ -70,7 +78,7 @@ def transcript_text(turns):
     return "\n".join("Speaker %d: %s" % (t["speaker"], t["text"]) for t in turns)
 
 
-def read_conversation(turns, known_people, voices=None):
+def read_conversation(turns, known_people, voices=None, recent=""):
     """Returns the dict described by SCHEMA. Raises RuntimeError with a short reason."""
     load_env_file()
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -81,12 +89,14 @@ def read_conversation(turns, known_people, voices=None):
     heard = [("Speaker %d = %s%s" % (n, v["name"], " (the wearer)" if v.get("is_wearer") else ""))
              for n, v in sorted(voices.items()) if v.get("name") and n in speakers]
     user = (
+        "Today is %s.\n"
         "The wearer is: %s\n"
         "People the wearer has met before: %s\n"
         "Speakers in this conversation: %s\n"
-        "Voices already identified earlier in this same recording (same voice, same number): %s\n\n"
-        "Conversation:\n%s" % (config.WEARER, known, ", ".join(str(s) for s in speakers),
-                                "; ".join(heard) or "(none)", transcript_text(turns))
+        "Voices already identified earlier in this same recording (same voice, same number): %s\n"
+        "Recent conversations, for context only (who \"him\"/\"her\" may be):\n%s\n\n"
+        "Conversation:\n%s" % (_today(), config.WEARER, known, ", ".join(str(s) for s in speakers),
+                                "; ".join(heard) or "(none)", recent or "(none)", transcript_text(turns))
     )
     client = anthropic.Anthropic()
     try:
@@ -136,3 +146,47 @@ def read_conversation(turns, known_people, voices=None):
             p["name"] = config.WEARER     # the wearer's name is known; don't rely on it being said
     result["people"] = sorted(people, key=lambda p: p["speaker"])
     return result
+
+
+# ---- quick check while people are still talking
+
+QUICK_SCHEMA = {
+    "type": "object",
+    "properties": {"promises": SCHEMA["properties"]["promises"]},
+    "required": ["promises"],
+    "additionalProperties": False,
+}
+
+QUICK_SYSTEM = """You see the last few lines of a conversation recorded by a wristband. Lines start
+with who spoke. The wearer is %s. List only commitments the wearer just made for another person
+(present or not), including shared plans the wearer is part of: "I'll send you...", "I need to buy
+my mom a present", "I owe Leo $20", "we need to buy him a soccer gift or send him $5".
+Lines may be cut mid-sentence; read them as one flow. When the wearer says "him"/"her"/"them",
+use the recent conversations to tell who it is; if unclear, for_name is null. One idea with
+alternatives is one promise.
+Follow the same field rules as always: for_name is the person as the wearer named them (or null
+if they said "you"), to_speaker is null here, a short title with the person, kind money/gift/task/plan/call,
+amount, due_label ("Today", "Tonight", "Tmrw", a weekday, "Next week" or "Soon"), due_detail,
+due_date ("YYYY-MM-DD" when a day was said or clearly implied, else null), due_time ("HH:MM" 24h
+when a time was said, e.g. "tonight at 8" -> 20:00, else null), confidence 0-1. If nothing is a clear commitment, return an empty list."""
+
+
+def quick_promises(lines, known_people, recent=""):
+    """Fast check of a few fresh lines for promises (returns the promises list)."""
+    load_env_file()
+    client = anthropic.Anthropic()
+    response = client.beta.messages.create(
+        model=config.MODEL,
+        max_tokens=4000,
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+        thinking={"type": "adaptive"},
+        output_config={"effort": "low", "format": {"type": "json_schema", "schema": QUICK_SCHEMA}},
+        system=QUICK_SYSTEM % config.WEARER,
+        messages=[{"role": "user", "content": "Today is %s.\nPeople the wearer knows: %s\nRecent conversations:\n%s\n\nJust now:\n%s" % (
+            _today(), ", ".join(known_people) or "(none)", recent or "(none)", lines)}],
+    )
+    if response.stop_reason in ("refusal", "max_tokens"):
+        return []
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    return json.loads(text).get("promises", []) if text else []

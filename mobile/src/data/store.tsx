@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from "react-native";
 import * as api from "./api";
 import { contactsPermission, findContact, loadContacts, type PhoneContact } from "./contacts";
-import type { Circle, Person, Todo } from "./types";
+import type { Circle, Payee, Person, Todo } from "./types";
 
 type Store = {
   ready: boolean;
@@ -31,14 +31,19 @@ type Store = {
   nameVoice: (voice: api.UnknownVoice, name: string) => Promise<void>;
   setStatus: (todoId: string, status: Todo["status"]) => Promise<void>;
   changePromise: (todoId: string, change: api.PromiseChange) => Promise<void>;
+  deletePromise: (todoId: string) => Promise<void>;
+  reorder: (ids: string[]) => Promise<void>; // ids in your order, first = top
   addPromises: (items: api.NewPromise[]) => Promise<void>;
   createCircle: (name: string, color: string) => Promise<void>;
   setMembership: (person: string, circle: string, member: boolean) => Promise<void>;
   pauseBand: (paused: boolean) => Promise<void>;
+  setPayee: (person: string, change: Payee) => Promise<void>;
+  renamePerson: (from: string, to: string) => Promise<string>; // returns the new person id
+  setOrbit: (person: string, ring: 1 | 2 | 3 | null) => Promise<void>;
 };
 
 const Ctx = createContext<Store | null>(null);
-const POLL_MS = 4000;
+const POLL_MS = 3000;
 
 export function slug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "person";
@@ -66,7 +71,8 @@ async function announce(todo: Todo) {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: todo.personName ? `Promise heard · ${todo.personName}` : "Promise heard · who was it?",
+        title: todo.personSource === "named" && todo.personName ? `Promise heard · pick ${todo.personName} from contacts`
+          : todo.personName ? `Promise heard · ${todo.personName}` : "Promise heard · who was it?",
         body: `${todo.title} · ${todo.dueLabel}${todo.dueDetail ? ` ${todo.dueDetail}` : ""}\n“${todo.quote}”`,
         data: { todoId: todo.id },
         ...(Platform.OS === "android" ? { channelId: "promises" } : null),
@@ -191,6 +197,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, ...(change.type ? { type: change.type } : {}) } : t)) }));
         return thenRefresh(api.updatePromise(todoId, change));
       },
+      reorder: (ids) => {
+        const pos = new Map(ids.map((id, i) => [id, i]));
+        patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (pos.has(t.id) ? { ...t, rank: pos.get(t.id)! } : t)) }));
+        return thenRefresh(api.reorderPromises(ids));
+      },
+      deletePromise: (todoId) => {
+        patchLocal((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== todoId) }));
+        return thenRefresh(api.deletePromise(todoId));
+      },
       addPromises: async (items) => {
         for (const p of items) {
           const saved = await api.createPromise(p);
@@ -206,6 +221,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           people: s.people.map((p) => (p.id === id ? { ...p, circles: member ? [...new Set([...p.circles, circle])] : p.circles.filter((c) => c !== circle) } : p)),
         }));
         return thenRefresh(api.setMembership(personName, circle, member));
+      },
+      setPayee: (personName, change) => {
+        const id = slug(personName);
+        patchLocal((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, payee: { ...p.payee, ...change } } : p)) }));
+        return thenRefresh(api.setPayee(personName, change));
+      },
+      renamePerson: async (from, to) => {
+        const r = await api.renamePerson(from, to);
+        await refresh();
+        return r.id;
+      },
+      setOrbit: (personName, ring) => {
+        const id = slug(personName);
+        if (ring !== null) patchLocal((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, ring, ringChosen: true } : p)) }));
+        return thenRefresh(api.setOrbit(personName, ring));
       },
       pauseBand: (paused) => {
         patchLocal((s) => ({ ...s, band: { ...s.band, paused } }));

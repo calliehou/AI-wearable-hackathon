@@ -2,33 +2,64 @@
 // this week's promises; and voices the band heard but couldn't name.
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, PeriMark, typeIcon } from "../components/Icon";
 import { Centered, Ring } from "../components/Orbit";
 import { Avatar, Pill, Section, T } from "../components/ui";
 import { WhoPicker } from "../components/WhoPicker";
+import { useConfirmDelete } from "../components/Confirm";
+import { DragList, type Handle } from "../components/DragList";
+import { SwipeToDelete } from "../components/SwipeToDelete";
+import { BurstLayer, useBurst } from "../components/Burst";
 import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
 import type { Person, Todo } from "../data/types";
 import { CARD_TONE, CIRCLE_DOTS, colors } from "../theme";
 
 const TODAY = ["Today", "Tonight"];
+// Due within the next few days: tomorrow or a named weekday.
+const WEEK = ["Tmrw", "Tomorrow", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "This week"];
 
 export default function MyOrbit() {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
   const [circle, setCircle] = useState<string | null>(null);
   const [voice, setVoice] = useState<UnknownVoice | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
+  const [ordering, setOrdering] = useState<"today" | null>(null);
+  const [dragging, setDragging] = useState(false);
+  // Move a promise up/down (or left/right) within its section and save the new order.
+  const move = (list: Todo[], i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const ids = list.map((t) => t.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    s.reorder(ids);
+  };
+  const orderButton = (key: "today", n: number) => n > 1 ? (
+    <Pressable accessibilityRole="button" onPress={() => setOrdering(ordering === key ? null : key)} hitSlop={8}
+      style={{ height: 30, borderRadius: 15, paddingHorizontal: 12, justifyContent: "center", backgroundColor: ordering === key ? colors.ink : colors.card }}>
+      <T style={{ fontSize: 12, color: ordering === key ? colors.white : colors.ink }}>{ordering === key ? "Done" : "Edit order"}</T>
+    </Pressable>
+  ) : null;
 
   const inCircle = (p?: Person) => !circle || !!p?.circles.includes(circle);
   const people = s.people.filter((p) => inCircle(p));
   const open = s.todos.filter((t) => t.status === "open" && (!circle || inCircle(s.person(t.personId))));
-  const today = open.filter((t) => TODAY.includes(t.dueLabel));
-  const week = s.todos.filter((t) => !TODAY.includes(t.dueLabel) && t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
+  const byRank = (a: Todo, b: Todo) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER);
+  const today = open.filter((t) => TODAY.includes(t.dueLabel)).sort(byRank);
+  const shown = s.todos.filter((t) => t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
+  const week = shown.filter((t) => t.status === "open" && WEEK.includes(t.dueLabel)).sort(byRank);
+  // Everything else: later or undated promises first, then the ones you kept.
+  // Kept promises leave home (they're under "kept" on each person's card).
+  const other = shown.filter((t) => t.status === "open" && !week.includes(t) && !TODAY.includes(t.dueLabel))
+    .sort((a, b) => byRank(a, b) || b.heardIso.localeCompare(a.heardIso));
   const dueToday = new Set(today.map((t) => t.personId));
 
   const planet = (p: Person, size: number) => ({
@@ -48,7 +79,7 @@ export default function MyOrbit() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.white }}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: NAV_SPACE }}
+      <ScrollView scrollEnabled={!dragging} contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: NAV_SPACE }}
         refreshControl={<RefreshControl refreshing={pulling} onRefresh={async () => { setPulling(true); await s.refresh(); setPulling(false); }} />}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -103,14 +134,33 @@ export default function MyOrbit() {
           shadowColor: colors.ink, shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: -6 }, elevation: 3 }}>
           <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: colors.handle, alignSelf: "center" }} />
 
-          <Section title={`Due today · ${today.length}`} right={today.length > 1 ? <T style={{ fontSize: 13, color: colors.muted }}>Swipe →</T> : null} />
+          <Section title={`Due today · ${today.length}`} right={orderButton("today", today.length)} />
           {today.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={312} decelerationRate="fast" contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}>
-              {today.map((t) => <DueCard key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+              {today.map((t, i) => <DueCard key={t.id} todo={t} onWho={() => setPicking(t.id)}
+                order={ordering === "today" ? { first: i === 0, last: i === today.length - 1, move: (d) => move(today, i, d) } : undefined} />)}
             </ScrollView>
           ) : (
             <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 20 }}>Nothing due today. Your band is listening for new promises.</T>
           )}
+
+          <Section title={`This week · ${week.length}`} right={week.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            <DragList items={week} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
+              render={(t, handle) => <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} />} />
+            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
+          </View>
+
+          <Section title={`Later · ${other.length}`} right={other.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            <DragList items={other} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
+              render={(t, handle) => (
+                <SwipeToDelete label={`Delete ${t.title}`} onDelete={(reset) => confirmDelete(t, undefined, reset)}>
+                  <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} swipe />
+                </SwipeToDelete>
+              )} />
+            {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing later.</T>}
+          </View>
 
           {s.unknownVoices.length > 0 && (
             <>
@@ -134,27 +184,25 @@ export default function MyOrbit() {
             </>
           )}
 
-          <Section title={`This week · ${week.filter((t) => t.status === "open").length}`} right={
-            <Pressable accessibilityRole="link" onPress={() => router.replace("/contacts")} hitSlop={8}><T style={{ fontSize: 13, color: colors.muted }}>All contacts</T></Pressable>
-          } />
-          <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {week.map((t) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
-            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>No other promises this week.</T>}
-          </View>
         </View>
       </ScrollView>
       <BottomNav />
       <WhoPicker visible={!!voice} title="Whose voice is this?" quote={voice?.quote} onClose={() => setVoice(null)} onPick={(n) => voice && s.nameVoice(voice, n)} />
-      <WhoPicker visible={!!picking} quote={pickingTodo?.quote} onClose={() => setPicking(null)} onPick={(n) => picking && s.setTodoPerson(picking, { name: n })} />
+      <WhoPicker key={picking ?? "none"} visible={!!picking} quote={pickingTodo?.quote}
+        title={pickingTodo?.personSource === "named" ? `Which ${pickingTodo.personName}?` : undefined}
+        initialQuery={pickingTodo?.personSource === "named" ? pickingTodo.personName ?? "" : ""}
+        onClose={() => setPicking(null)} onPick={(n) => picking && s.setTodoPerson(picking, { name: n })} />
     </View>
   );
 }
 
-function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
+function DueCard({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?: Order }) {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const p = s.person(todo.personId);
   return (
-    <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+    <Pressable accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+      onLongPress={() => confirmDelete(todo)}
       style={{ width: 300, borderRadius: 26, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, overflow: "hidden",
         shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
       <View style={{ height: 150, backgroundColor: CARD_TONE[todo.type], alignItems: "center", justifyContent: "center" }}>
@@ -166,6 +214,14 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
         <View style={{ position: "absolute", top: 12, left: 12, right: 70, backgroundColor: colors.white, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 10 }}>
           <T style={{ fontSize: 12 }} numberOfLines={1}>“{todo.quote}”</T>
         </View>
+        {order ? (
+          <View style={{ position: "absolute", top: 10, right: 10 }}><Arrows order={order} horizontal /></View>
+        ) : (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo)} hitSlop={8}
+            style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="close" size={13} color={colors.soft} stroke={2.6} />
+          </Pressable>
+        )}
         <View style={{ position: "absolute", bottom: 12, left: 12, backgroundColor: colors.ink, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center" }}>
           <Icon name={typeIcon[todo.type]} size={11} color={colors.white} stroke={2.6} />
           <T style={{ fontSize: 11, color: colors.white }}>{todo.type}</T>
@@ -174,7 +230,9 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 }}>
         <View style={{ flex: 1 }}>
           <T w="extrabold" style={{ fontSize: 17 }} numberOfLines={1}>{todo.title}</T>
-          {p ? (
+          {todo.personSource === "named" ? (
+            <Pressable accessibilityRole="button" onPress={onWho} hitSlop={8}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Pick {todo.personName} from contacts</T></Pressable>
+          ) : p ? (
             <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{todo.note ?? `to ${p.name}`}</T>
           ) : (
             <Pressable accessibilityRole="button" onPress={onWho} hitSlop={8}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Who is this? Tap to choose</T></Pressable>
@@ -189,32 +247,71 @@ function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
   );
 }
 
-function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
+type Order = { first: boolean; last: boolean; move: (dir: -1 | 1) => void };
+
+function Arrows({ order, horizontal }: { order: Order; horizontal?: boolean }) {
+  const btn = (dir: -1 | 1, disabled: boolean) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={dir < 0 ? (horizontal ? "Move left" : "Move up") : (horizontal ? "Move right" : "Move down")}
+      disabled={disabled} onPress={() => order.move(dir)} hitSlop={6}
+      style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.ink, opacity: disabled ? 0.2 : 1, alignItems: "center", justifyContent: "center",
+        transform: [{ rotate: horizontal ? (dir < 0 ? "90deg" : "-90deg") : dir < 0 ? "180deg" : "0deg" }] }}>
+      <Icon name="chevronDown" size={16} color={colors.white} stroke={2.8} />
+    </Pressable>
+  );
+  return <View style={{ flexDirection: horizontal ? "row" : "column", gap: 4 }}>{btn(-1, order.first)}{btn(1, order.last)}</View>;
+}
+
+function WeekRow({ todo, onWho, order, handle, swipe }: { todo: Todo; onWho: () => void; order?: Order; handle?: Handle; swipe?: boolean }) {
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const p = s.person(todo.personId);
-  const done = todo.status === "done";
+  const burst = useBurst();
+  const done = todo.status === "done" || burst.active;
+  function tick() {
+    if (todo.status === "done") { s.setStatus(todo.id, "open"); return; }
+    // Bubble burst, then it's saved as kept and leaves the list.
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    burst.play(() => s.setStatus(todo.id, "done"));
+  }
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingLeft: 12, paddingRight: 14, borderRadius: 22, backgroundColor: colors.card, opacity: done ? 0.55 : 1 }}>
+    <Animated.View style={[{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 70, paddingLeft: 12, paddingRight: 10, borderRadius: 22,
+      backgroundColor: colors.card, opacity: todo.status === "done" ? 0.55 : 1, zIndex: burst.active ? 20 : 0 }, burst.rowStyle]}>
+      {burst.active && <BurstLayer t={burst.t} x={26} y={35} />}
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`${done ? "Mark not done" : "Mark done"}: ${todo.title}`}
-        onPress={() => s.setStatus(todo.id, done ? "open" : "done")} hitSlop={8}
+        onPress={tick} disabled={burst.active} hitSlop={8}
         style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, borderColor: done ? colors.ink : colors.greyRing, backgroundColor: done ? colors.ink : colors.white, alignItems: "center", justifyContent: "center" }}>
         {done && <Icon name="tick" size={14} color={colors.white} stroke={3} />}
       </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+      <Pressable accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+        onLongPress={() => confirmDelete(todo)}
         style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingVertical: 8 }}>
         <Avatar name={p?.name ?? null} unknown={!p} size={38} color={s.personColor(p)} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <T w="extrabold" style={{ fontSize: 15, textDecorationLine: done ? "line-through" : "none" }} numberOfLines={1}>{todo.title}</T>
-          {p ? (
+          {todo.personSource === "named" ? (
+            <Pressable accessibilityRole="button" onPress={onWho} hitSlop={6}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Pick {todo.personName} from contacts</T></Pressable>
+          ) : p ? (
             <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{[p.circles[0], todo.heardLabel].filter(Boolean).join(" · ")}</T>
           ) : (
             <Pressable accessibilityRole="button" onPress={onWho} hitSlop={6}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Who is this?</T></Pressable>
           )}
         </View>
         <View style={{ backgroundColor: colors.white, borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
-          <T w="extrabold" style={{ fontSize: 12 }}>{todo.dueLabel}</T>
+          <T w="extrabold" style={{ fontSize: 12 }}>{done ? "Kept" : todo.dueLabel}</T>
         </View>
       </Pressable>
-    </View>
+      {handle ? (
+        <View {...handle.handlers} accessibilityLabel={`Drag to reorder ${todo.title}`} hitSlop={8}
+          style={{ width: 30, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: handle.dragging ? colors.white : "transparent" }}>
+          <Icon name="grip" size={18} color={handle.dragging ? colors.ink : colors.grey} />
+        </View>
+      ) : null}
+      {order ? <Arrows order={order} /> : swipe ? null : (
+        <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo)} hitSlop={8}
+          style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
+          <Icon name="close" size={13} color={colors.muted} stroke={2.6} />
+        </Pressable>
+      )}
+    </Animated.View>
   );
 }

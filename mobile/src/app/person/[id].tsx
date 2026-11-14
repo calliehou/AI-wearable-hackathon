@@ -8,15 +8,23 @@ import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, View } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, Pill, T } from "../../components/ui";
+import { WhoPicker } from "../../components/WhoPicker";
+import { RenameSheet } from "../../components/RenameSheet";
+import { CirclePicker } from "../../components/CirclePicker";
+import { OrbitPicker } from "../../components/OrbitPicker";
+import { MergeSheet } from "../../components/MergeSheet";
+import { PromiseListSheet } from "../../components/PromiseListSheet";
+import { useConfirmDelete } from "../../components/Confirm";
 import { fetchAbout, fetchRecap, type About } from "../../data/api";
 import { useStore } from "../../data/store";
 import { colors, TYPE_TONE } from "../../theme";
 
-const ORBIT = ["", "Inner orbit ↑", "Middle orbit", "Drifting away"];
+const ORBIT = ["", "Inner orbit", "Middle orbit", "Outer orbit"];
 
 export default function PersonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
   const p = s.person(id);
   const [about, setAbout] = useState<About | null>(null);
@@ -26,6 +34,12 @@ export default function PersonScreen() {
   const [loadingRecap, setLoadingRecap] = useState(false);
   const [recapText, setRecapText] = useState("");
   const [note, setNote] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [circling, setCircling] = useState(false);
+  const [orbiting, setOrbiting] = useState(false);
+  const [listing, setListing] = useState<"open" | "kept" | null>(null);
+  const [merging, setMerging] = useState(false);
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
   const name = p?.name;
@@ -44,6 +58,7 @@ export default function PersonScreen() {
   if (!p) return <View style={{ flex: 1, backgroundColor: colors.white, paddingTop: insets.top }}><Header /></View>;
   const open = s.openFor(p.id);
   const first = p.name.split(" ")[0];
+  const named = s.todos.filter((t) => t.personId === p.id && t.personSource === "named" && t.status !== "dismissed");
 
   async function recap() {
     if (playing) { player.pause(); Speech.stop(); setPlaying(false); return; }
@@ -81,17 +96,33 @@ export default function PersonScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 32 }}>
         <View style={{ alignItems: "center" }}>
           <Avatar name={p.name} size={96} color={s.personColor(p)} badge={p.open || undefined} />
-          <T w="extrabold" style={{ fontSize: 30, letterSpacing: -0.8, marginTop: 10 }}>{p.name}</T>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Edit name: ${p.name}`} onPress={() => setRenaming(true)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, minHeight: 44 }}>
+            <T w="extrabold" style={{ fontSize: 30, letterSpacing: -0.8 }}>{p.name}</T>
+            <Icon name="edit" size={18} color={colors.muted} />
+          </Pressable>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 }}>
-            {p.circles.map((c) => <Pill key={c} label={c} bg={s.circleColor(c) ?? colors.card} onPress={() => router.push("/circles")} />)}
-            {!p.circles.length && <Pill label="Add to a circle" dashed onPress={() => router.push("/circles")} />}
-            <Pill label={ORBIT[p.ring]} bg={p.ring === 1 ? "#FFF1E8" : colors.card} />
+            {p.circles.map((c) => <Pill key={c} label={c} bg={s.circleColor(c) ?? colors.card} onPress={() => setCircling(true)} />)}
+            <Pill label={p.circles.length ? "Circles" : "Add to a circle"} dashed onPress={() => setCircling(true)} />
+            <Pill label={`${ORBIT[p.ring]}${p.ring === 1 ? " ↑" : ""} ▾`} bg={p.ring === 1 ? "#FFF1E8" : colors.card} onPress={() => setOrbiting(true)} />
           </View>
         </View>
 
+        {named.length > 0 && (
+          <Pressable accessibilityRole="button" onPress={() => setPicking(true)}
+            style={{ marginTop: 16, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 20, backgroundColor: "#FFF1E8", borderWidth: 1.5, borderColor: "#F9C9A8" }}>
+            <Icon name="contacts" size={20} />
+            <View style={{ flex: 1 }}>
+              <T w="extrabold" style={{ fontSize: 14 }}>Which {p.name}? Pick from contacts</T>
+              <T w="medium" style={{ fontSize: 12, color: colors.soft, marginTop: 2 }}>You said “{p.name}”; choose the right contact for {named.length === 1 ? "this promise" : `these ${named.length} promises`}</T>
+            </View>
+            <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
+          </Pressable>
+        )}
+
         <View style={{ flexDirection: "row", gap: 8, marginTop: 20 }}>
-          <Stat big={String(p.open)} small="open" />
-          <Stat big={String(p.kept)} small="kept" />
+          <Stat big={String(p.open)} small="open" onPress={() => setListing("open")} />
+          <Stat big={String(p.kept)} small="kept" onPress={() => setListing("kept")} />
           <Stat big={p.lastTalk} small="last talk" />
         </View>
 
@@ -122,7 +153,8 @@ export default function PersonScreen() {
               : t.type === "Gift" ? router.push({ pathname: "/gifts/[id]", params: { id: p.id } })
               : router.push({ pathname: "/promise/[id]", params: { id: t.id } });
             return (
-              <Pressable key={t.id} accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+              <Pressable key={t.id} accessibilityRole="button" accessibilityHint="Long press to delete" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: t.id } })}
+                onLongPress={() => confirmDelete(t)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 64, borderRadius: 20, backgroundColor: colors.card, paddingHorizontal: 14 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: TYPE_TONE[t.type], alignItems: "center", justifyContent: "center" }}>
                   <Icon name={typeIcon[t.type]} size={18} stroke={2.4} />
@@ -165,7 +197,37 @@ export default function PersonScreen() {
             {p.email ? <Pill label="Email" onPress={() => Linking.openURL(`mailto:${p.email}`)} /> : null}
           </View>
         )}
+        <Pressable accessibilityRole="button" onPress={() => setMerging(true)}
+          style={{ marginTop: 18, flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 18, borderWidth: 1.5, borderColor: colors.line }}>
+          <Icon name="contacts" size={18} color={colors.soft} />
+          <View style={{ flex: 1 }}>
+            <T w="extrabold" style={{ fontSize: 14 }}>Merge with another contact</T>
+            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Same person under two names? Combine them.</T>
+          </View>
+          <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
+        </Pressable>
       </ScrollView>
+
+      <PromiseListSheet visible={listing !== null} onClose={() => setListing(null)}
+        title={listing === "kept" ? `Kept with ${first}` : `Still to do for ${first}`}
+        empty={listing === "kept" ? `No kept promises with ${first} yet.` : `Nothing open with ${first}. You're all caught up.`}
+        todos={s.todos.filter((t) => t.personId === p.id && t.status === (listing === "kept" ? "done" : "open"))} />
+      <MergeSheet person={p} visible={merging} onClose={() => setMerging(false)}
+        onMerged={(id) => router.replace({ pathname: "/person/[id]", params: { id } })} />
+
+      <WhoPicker key={String(picking)} visible={picking} title={`Which ${p.name}?`} initialQuery={p.name}
+        onClose={() => setPicking(false)}
+        onPick={async (n) => {
+          for (const t of named) await s.setTodoPerson(t.id, { name: n });
+          setPicking(false);
+          router.back();
+        }} />
+
+      <CirclePicker person={p} visible={circling} onClose={() => setCircling(false)} />
+      <OrbitPicker person={p} visible={orbiting} onClose={() => setOrbiting(false)} />
+
+      <RenameSheet key={`rename-${renaming}`} visible={renaming} name={p.name} onClose={() => setRenaming(false)}
+        onSave={async (to) => { const nid = await s.renamePerson(p.name, to); router.replace({ pathname: "/person/[id]", params: { id: nid } }); }} />
 
       <Modal visible={showLog} animationType="slide" transparent onRequestClose={() => setShowLog(false)}>
         <Pressable accessibilityLabel="Close" onPress={() => setShowLog(false)} style={{ flex: 1, backgroundColor: "rgba(17,17,17,0.35)" }} />
@@ -185,7 +247,7 @@ export default function PersonScreen() {
                     <T w="extrabold" style={{ fontSize: 14, flex: 1 }}>{e.title}</T>
                     <T w="medium" style={{ fontSize: 12, color: colors.muted }}>{e.when}</T>
                   </View>
-                  <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 3, lineHeight: 18 }}>{e.note}</T>
+                  <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 3, lineHeight: 18 }} numberOfLines={1}>{firstSentence(e.note)}</T>
                 </View>
               </View>
             ))}
@@ -197,13 +259,23 @@ export default function PersonScreen() {
   );
 }
 
-function Stat({ big, small }: { big: string; small: string }) {
-  return (
-    <View style={{ flex: 1, height: 64, borderRadius: 20, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
+// One short line per conversation in the log.
+function firstSentence(text: string) {
+  const m = text.match(/^.*?[.!?](\s|$)/);
+  return (m ? m[0] : text).trim();
+}
+
+function Stat({ big, small, onPress }: { big: string; small: string; onPress?: () => void }) {
+  const body = (
+    <>
       <T w="extrabold" style={{ fontSize: 20 }}>{big}</T>
-      <T w="semibold" style={{ fontSize: 12, color: colors.muted }}>{small}</T>
-    </View>
+      <T w="semibold" style={{ fontSize: 12, color: colors.muted }}>{small}{onPress ? " ›" : ""}</T>
+    </>
   );
+  const style = { flex: 1, height: 64, borderRadius: 20, backgroundColor: colors.card, alignItems: "center" as const, justifyContent: "center" as const };
+  return onPress ? (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${big} ${small}. Show the list`} onPress={onPress} style={({ pressed }) => [style, { opacity: pressed ? 0.7 : 1 }]}>{body}</Pressable>
+  ) : <View style={style}>{body}</View>;
 }
 
 function Fact({ k, v }: { k: string; v: string }) {

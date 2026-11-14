@@ -34,7 +34,7 @@ export default async function Home() {
         </div>
       </div>
       <p className="mt-1 text-sm text-muted">
-        The band records non-stop. Each conversation appears here after a minute of silence.
+        The band records non-stop. Each conversation appears here after 30 seconds of silence.
       </p>
       {sample && (
         <p className="mt-4 rounded-lg border border-line bg-panel px-4 py-3 text-sm">

@@ -2,20 +2,34 @@
 import * as Notifications from "expo-notifications";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, PrimaryButton, T, TextButton, money } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
+import { useConfirmDelete } from "../../components/Confirm";
+import { dueDateTime, WhenEditor } from "../../components/WhenEditor";
 import { useStore } from "../../data/store";
 import type { PromiseType } from "../../data/types";
 import { colors, TYPE_TONE } from "../../theme";
 
+// Seconds until the reminder: an hour before the due time, the morning of the due day,
+// or (no day or it's already past) one hour from now.
+function reminderSeconds(date: string | null, time: string | null) {
+  if (!date && !time) return 3600;
+  const due = dueDateTime(date, time);
+  const at = due.getTime() - (time ? 3600_000 : 0);
+  const now = Date.now();
+  return at > now + 60_000 ? Math.round((at - now) / 1000) : 3600;
+}
+
 const TYPES: PromiseType[] = ["Money", "Gift", "Task", "Plan"];
+const IDEAS_HINT: Record<PromiseType, string> = { Gift: "Gift ideas", Plan: "Places, plans and things to do", Task: "Tips, recipes and how-tos", Money: "Ways to send it or make it special" };
 
 export default function PromiseHeard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const s = useStore();
+  const confirmDelete = useConfirmDelete();
   const insets = useSafeAreaInsets();
   const t = s.todo(id);
   const [picking, setPicking] = useState(false);
@@ -26,10 +40,12 @@ export default function PromiseHeard() {
 
   async function save() {
     if (remind) {
-      // A phone reminder (the band has no vibration motor): one hour from now as a gentle nudge.
+      // A phone reminder (the band has no vibration motor): at the promise's day and time if
+      // known (an hour before, if that's still ahead), otherwise in an hour as a gentle nudge.
+      const seconds = reminderSeconds(t!.dueDate, t!.dueTime);
       await Notifications.scheduleNotificationAsync({
-        content: { title: p ? `Keep your promise to ${p.name.split(" ")[0]}` : "Keep your promise", body: `${t!.title} · due ${t!.dueLabel.toLowerCase()}`, data: { todoId: t!.id } },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3600 },
+        content: { title: p ? `Keep your promise to ${p.name.split(" ")[0]}` : "Keep your promise", body: `${t!.title} · due ${t!.dueLabel.toLowerCase()}${t!.dueDetail ? " " + t!.dueDetail : ""}`, data: { todoId: t!.id } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds },
       }).catch(() => undefined);
     }
     if (kind === "Money" && p) router.push({ pathname: "/transfer/[id]", params: { id: t!.id } });
@@ -64,6 +80,19 @@ export default function PromiseHeard() {
           <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>{t.heardAt} · {t.heardLabel}</T>
         </View>
 
+        <Pressable accessibilityRole="button" accessibilityHint="Opens Ask Peri with ideas for this promise"
+          onPress={() => router.push({ pathname: "/ask", params: { ideas: t.id } })}
+          style={({ pressed }) => ({ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 22, backgroundColor: TYPE_TONE[kind], opacity: pressed ? 0.8 : 1 })}>
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="sparkle" size={18} color={colors.white} stroke={2.2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <T w="extrabold" style={{ fontSize: 15 }}>Get ideas from Peri</T>
+            <T w="medium" style={{ fontSize: 12, color: colors.soft, marginTop: 2 }} numberOfLines={1}>{IDEAS_HINT[kind]}{p && kind === "Gift" ? ` for ${p.name.split(" ")[0]}` : ""}</T>
+          </View>
+          <Icon name="chevronRight" size={18} stroke={2.4} />
+        </Pressable>
+
         <T w="extrabold" style={{ fontSize: 15, marginTop: 20 }}>What kind of promise?</T>
         <View accessibilityLabel="Promise type" style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
           {TYPES.map((k) => (
@@ -80,7 +109,11 @@ export default function PromiseHeard() {
           <Avatar name={p?.name ?? null} unknown={!p} size={44} color={s.personColor(p)} />
           <View style={{ flex: 1 }}>
             <T w="extrabold" style={{ fontSize: 16 }}>{p ? `To ${p.name}` : "Who is this? Tap to choose"}</T>
-            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{p ? [p.circles[0], t.title].filter(Boolean).join(" · ") : "From your contacts"}</T>
+            {t.personSource === "named" ? (
+              <T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>You said “{t.personName}” · tap to pick them from contacts</T>
+            ) : (
+              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{p ? [p.circles[0], t.title].filter(Boolean).join(" · ") : "From your contacts"}</T>
+            )}
           </View>
           <View style={{ alignItems: "flex-end" }}>
             {t.amount != null && <T w="extrabold" style={{ fontSize: 20 }}>{money(t.amount)}</T>}
@@ -88,9 +121,12 @@ export default function PromiseHeard() {
           </View>
         </Pressable>
 
+        <T w="extrabold" style={{ fontSize: 15, marginTop: 20 }}>When</T>
+        <WhenEditor key={`${t.dueDate}-${t.dueTime}`} date={t.dueDate} time={t.dueTime} onChange={(c) => s.changePromise(t.id, c)} />
+
         <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 22, backgroundColor: colors.card }}>
           <Icon name="bell" size={18} stroke={2.2} />
-          <T w="extrabold" style={{ flex: 1, fontSize: 14 }}>Remind me on my phone</T>
+          <T w="extrabold" style={{ flex: 1, fontSize: 14 }}>Remind me on my phone{t.dueTime ? " · 1 h before" : ""}</T>
           <Switch value={remind} onValueChange={setRemind} trackColor={{ true: colors.ink, false: colors.handle }} accessibilityLabel="Remind me on my phone" />
         </View>
 
@@ -99,12 +135,16 @@ export default function PromiseHeard() {
         {t.status === "open" && kind !== "Money" && (
           <TextButton label="Mark as kept" onPress={() => { s.setStatus(t.id, "done"); router.replace({ pathname: "/kept/[id]", params: { id: t.id } }); }} />
         )}
-        <TextButton label="That wasn't a promise" onPress={() => Alert.alert("Remove this promise?", "It disappears from your orbit.", [
-          { text: "Cancel", style: "cancel" },
-          { text: "Remove", style: "destructive", onPress: () => { s.setStatus(t.id, "dismissed"); router.back(); } },
-        ])} />
+        <Pressable accessibilityRole="button" onPress={() => confirmDelete(t, () => router.back())}
+          style={{ height: 44, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
+          <Icon name="close" size={14} color="#C2410C" stroke={2.6} />
+          <T style={{ fontSize: 14, color: "#C2410C" }}>Delete promise</T>
+        </Pressable>
       </ScrollView>
-      <WhoPicker visible={picking} quote={t.quote} onClose={() => setPicking(false)} onPick={(n) => s.setTodoPerson(t.id, { name: n })} />
+      <WhoPicker key={String(picking)} visible={picking} quote={t.quote}
+        title={t.personSource === "named" ? `Which ${t.personName}?` : undefined}
+        initialQuery={t.personSource === "named" ? t.personName ?? "" : ""}
+        onClose={() => setPicking(false)} onPick={(n) => s.setTodoPerson(t.id, { name: n })} />
     </View>
   );
 }

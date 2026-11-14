@@ -20,8 +20,10 @@ const SCHEMA = {
           amount: { type: ["number", "null"] },
           due_label: { type: "string" },
           due_detail: { type: ["string", "null"] },
+          due_date: { type: ["string", "null"] },
+          due_time: { type: ["string", "null"] },
         },
-        required: ["person_name", "title", "kind", "amount", "due_label", "due_detail"],
+        required: ["person_name", "title", "kind", "amount", "due_label", "due_detail", "due_date", "due_time"],
         additionalProperties: false,
       },
     },
@@ -38,6 +40,8 @@ For each promise:
 - amount: the number for money promises, else null.
 - due_label: "Today", "Tonight", "Tmrw", a weekday like "Fri", or "Soon" if no time was given.
 - due_detail: a time like "5:00 PM" if said or clearly implied, else null.
+- due_date: "YYYY-MM-DD" when a day was said or implied (use today's date below), else null.
+- due_time: "HH:MM" 24h when a time was said ("at 5" in the afternoon -> 17:00), else null.
 If nothing said is a promise to someone, return an empty list.`;
 
 async function transcribe(audio: ArrayBuffer, type: string): Promise<string> {
@@ -59,12 +63,16 @@ export async function POST(req: Request) {
     const people = String(form.get("people") ?? "");
     let text = String(form.get("text") ?? "").trim();
     const audio = form.get("audio");
-    if (!text && audio instanceof Blob) text = await transcribe(await audio.arrayBuffer(), audio.type);
+    if (!text && audio instanceof Blob) {
+      // Phones may label the m4a as "" or application/octet-stream; Deepgram needs an audio type.
+      const type = audio.type.startsWith("audio/") ? audio.type : "audio/mp4";
+      text = await transcribe(await audio.arrayBuffer(), type);
+    }
     if (!text) return NextResponse.json({ error: "Nothing was heard. Try again a little closer to the phone." }, { status: 422 });
     const out = await askJson<{ promises: unknown[] }>({
       system: SYSTEM,
       schema: SCHEMA,
-      user: `Known people: ${people || "(none)"}\nToday is ${new Date().toDateString()}.\nWhat they said: "${text}"`,
+      user: `Known people: ${people || "(none)"}\nToday is ${new Date().toLocaleDateString("en-CA")} (${new Date().toLocaleDateString("en-US", { weekday: "long" })}).\nWhat they said: "${text}"`,
     });
     return NextResponse.json({ quote: text, promises: out.promises });
   } catch (e) {

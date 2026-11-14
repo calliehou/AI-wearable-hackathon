@@ -10,6 +10,8 @@ const PROMISES = path.join(DATA, "promises.json");
 const CIRCLES = path.join(DATA, "circles.json");
 const LIVE = path.join(DATA, "live.json");
 const CONTROL = path.join(DATA, "control.json");
+const PAYEES = path.join(DATA, "payees.json");
+const ORBITS = path.join(DATA, "orbits.json"); // { personId: 1 | 2 | 3 } chosen in the app
 
 export type Kind = "money" | "gift" | "task" | "plan" | "send" | "call" | "bring" | "meet" | "other";
 export type PromiseType = "Money" | "Gift" | "Task" | "Plan";
@@ -27,8 +29,12 @@ export type StoredPromise = {
   confidence: number;
   speaker: number | null;
   person_name: string | null;
+  person_source?: "voice" | "named" | "picked" | null; // "named": said aloud, not yet picked from contacts
   status: "open" | "done" | "dismissed";
   note?: string | null;
+  rank?: number | null; // your order (lower first); unset = by date
+  due_date?: string | null; // "2026-11-20" when known (said in the conversation or set in the app)
+  due_time?: string | null; // "17:00" when known
 };
 
 // The design's four kinds of promise.
@@ -39,6 +45,29 @@ export function typeOf(kind: Kind): PromiseType {
   return "Task";
 }
 const KIND_FOR_TYPE: Record<PromiseType, Kind> = { Money: "money", Gift: "gift", Task: "task", Plan: "plan" };
+
+// "Today"/"Tonight"/"Tmrw"/"Fri"/"Nov 28" and "5:00 PM" from a date and time, as of now.
+export function dueLabels(date: string | null | undefined, time: string | null | undefined) {
+  let label: string | null = null;
+  let detail: string | null = null;
+  if (time && /^\d{2}:\d{2}$/.test(time)) {
+    const [h, m] = time.split(":").map(Number);
+    detail = new Date(2000, 0, 1, h, m).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [y, mo, d] = date.split("-").map(Number);
+    const due = new Date(y, mo - 1, d);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.round((due.getTime() - today.getTime()) / 86400000);
+    const evening = time ? Number(time.slice(0, 2)) >= 18 : false;
+    if (days < 0) label = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    else if (days === 0) label = evening ? "Tonight" : "Today";
+    else if (days === 1) label = "Tmrw";
+    else if (days < 7) label = due.toLocaleDateString("en-US", { weekday: "short" });
+    else label = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+  return { label, detail };
+}
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
@@ -124,15 +153,34 @@ export async function setMembership(person: string, circle: string, member: bool
   return f;
 }
 
+// ---- payment usernames (Venmo / Cash App / PayPal), entered once per person in the app
+
+export type Payee = { venmo?: string; cashapp?: string; paypal?: string; method?: "venmo" | "cashapp" | "paypal" };
+export const readPayees = () => readJson<Record<string, Payee>>(PAYEES, {});
+
+export async function setPayee(person: string, change: Payee) {
+  const all = await readPayees();
+  const id = personId(person);
+  const clean = (v?: string) => v?.trim().replace(/^[@$]/, "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 40) || undefined;
+  const next: Payee = { ...all[id] };
+  for (const k of ["venmo", "cashapp", "paypal"] as const) if (change[k] !== undefined) next[k] = clean(change[k]);
+  if (change.method) next.method = change.method;
+  all[id] = next;
+  await writeJson(PAYEES, all);
+  return next;
+}
+
 // ---- the snapshot the app polls
 
 export type UnknownVoice = { interaction_id: string; speaker: number; quote: string; title: string; heard: string; seconds: number };
 
 export async function snapshot() {
-  const [stored, interactions, circleFile, live, control] = await Promise.all([
+  const [stored, interactions, circleFile, live, control, payees, orbits] = await Promise.all([
     readPromises(), realInteractions(), readCircles(),
     readJson<{ updated_at?: number; connected?: boolean; recording?: boolean } | null>(LIVE, null),
     readJson<{ paused?: boolean }>(CONTROL, {}),
+    readPayees(),
+    readJson<Record<string, 1 | 2 | 3>>(ORBITS, {}),
   ]);
   type P = { id: string; name: string; lastAt: string; talks30: number; talks14: number; moments: number };
   const people = new Map<string, P>();
@@ -175,7 +223,8 @@ export async function snapshot() {
 
   const todos = stored
     .filter((p) => p.status !== "dismissed")
-    .map((p) => ({
+    .map((p) => ({ p, when: dueLabels(p.due_date, p.due_time) }))
+    .map(({ p, when }) => ({
       id: p.id,
       title: p.title,
       quote: p.quote,
@@ -183,16 +232,20 @@ export async function snapshot() {
       type: typeOf(p.kind),
       personId: p.person_name ? personId(p.person_name) : null,
       personName: p.person_name,
+      personSource: p.person_source ?? (p.person_name ? "voice" : null),
       amount: p.amount ?? undefined,
       note: p.note ?? undefined,
-      dueLabel: p.due_label,
-      dueDetail: p.due_detail ?? undefined,
+      dueLabel: when.label ?? p.due_label,
+      dueDetail: when.detail ?? p.due_detail ?? undefined,
+      dueDate: p.due_date ?? null,
+      dueTime: p.due_time ?? null,
       heardLabel: `heard ${ago(p.heard_at)}`,
       heardAt: clock(p.heard_at),
       heardIso: p.heard_at,
       confidence: p.confidence,
       status: p.status,
       voiceKnown: p.speaker !== null,
+      rank: p.rank ?? null,
     }));
 
   const peopleOut = [...people.values()].map((p) => {
@@ -200,15 +253,18 @@ export async function snapshot() {
     const kept = todos.filter((t) => t.personId === p.id && t.status === "done").length;
     const daysQuiet = (now - new Date(p.lastAt).getTime()) / 86400000;
     // Orbit: 1 = inner (open promises or lots of talk), 2 = middle, 3 = outer / drifting.
-    const ring = open > 0 || p.talks14 >= 3 ? 1 : daysQuiet <= 14 ? 2 : 3;
+    const autoRing = open > 0 || p.talks14 >= 3 ? 1 : daysQuiet <= 14 ? 2 : 3;
+    const chosen = orbits[p.id];
+    const ring = chosen ?? autoRing;
     return {
       id: p.id, name: p.name, lastAt: p.lastAt,
       lastHeard: p.moments ? `Heard ${ago(p.lastAt)}` : "Not heard yet",
       lastTalk: p.moments ? short(p.lastAt) : "—",
-      moments: p.talks30, open, kept, ring,
+      moments: p.talks30, open, kept, ring, ringChosen: chosen !== undefined,
       drifting: p.moments > 0 && daysQuiet > 14,
       quietFor: p.moments ? short(p.lastAt) : null,
       circles: circleFile.members[p.id] ?? [],
+      payee: payees[p.id] ?? {},
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -241,7 +297,7 @@ export async function snapshot() {
 
 export async function updatePromise(id: string, change: {
   person_name?: string | null; status?: StoredPromise["status"]; type?: PromiseType; due_label?: string; due_detail?: string | null;
-  amount?: number | null; title?: string;
+  amount?: number | null; title?: string; due_date?: string | null; due_time?: string | null;
 }) {
   const items = await readPromises();
   const pr = items.find((p) => p.id === id);
@@ -251,10 +307,19 @@ export async function updatePromise(id: string, change: {
   if (change.due_label) pr.due_label = change.due_label.slice(0, 20);
   if (change.due_detail !== undefined) pr.due_detail = change.due_detail;
   if (change.amount !== undefined) pr.amount = change.amount;
+  if (change.due_date !== undefined) pr.due_date = change.due_date;
+  if (change.due_time !== undefined) pr.due_time = change.due_time;
+  if (change.due_date !== undefined || change.due_time !== undefined) {
+    const when = dueLabels(pr.due_date, pr.due_time);
+    if (when.label) pr.due_label = when.label;
+    else if (change.due_date === null) pr.due_label = "Soon";
+    pr.due_detail = when.detail ?? (change.due_time === null ? null : pr.due_detail);
+  }
   if (change.title) pr.title = change.title.slice(0, 80);
   if (change.person_name !== undefined) {
     const name = change.person_name?.trim().slice(0, 60) || null;
     pr.person_name = name;
+    pr.person_source = name ? "picked" : null;
     if (pr.speaker !== null) {
       for (const other of items) if (other.interaction_id === pr.interaction_id && other.speaker === pr.speaker) other.person_name = name;
       await renamePerson(pr.interaction_id, pr.speaker, name).catch(() => undefined);
@@ -281,6 +346,7 @@ export async function nameVoice(interactionId: string, speaker: number, name: st
 
 export async function addPromise(b: {
   title: string; quote: string; kind?: Kind; amount?: number | null; due_label?: string; due_detail?: string | null; person_name?: string | null;
+  due_date?: string | null; due_time?: string | null;
 }) {
   const kinds: Kind[] = ["money", "gift", "task", "plan", "send", "call", "bring", "meet", "other"];
   const item: StoredPromise = {
@@ -297,6 +363,8 @@ export async function addPromise(b: {
     speaker: null,
     person_name: b.person_name?.trim() || null,
     status: "open",
+    due_date: validDate(b.due_date),
+    due_time: validTime(b.due_time),
   };
   await writePromises([item, ...(await readPromises())]);
   return item;
@@ -331,3 +399,87 @@ export async function overview() {
   const talks = (await realInteractions()).slice(0, 25);
   return { snap, talks };
 }
+
+// Remove a promise for good (the app asks first).
+export async function deletePromise(id: string) {
+  const items = await readPromises();
+  const left = items.filter((p) => p.id !== id);
+  if (left.length === items.length) return false;
+  await writePromises(left);
+  return true;
+}
+
+// Rename a person everywhere Peri knows them: promises, conversations, circles, Venmo
+// username and the voice memory (so the band recognises them under the new name).
+export async function renamePersonEverywhere(from: string, to: string) {
+  const oldId = personId(from);
+  const name = to.trim().slice(0, 60);
+  if (!name) throw new Error("The new name is empty.");
+  const newId = personId(name);
+  const same = (n: string | null | undefined) => !!n && personId(n) === oldId;
+  let changes = 0;
+
+  const promises = await readPromises();
+  for (const p of promises) if (same(p.person_name)) { p.person_name = name; changes++; }
+  await writePromises(promises);
+
+  const INTER = path.join(DATA, "interactions.json");
+  const inter = await readJson<Interaction[]>(INTER, []);
+  for (const it of inter) for (const p of it.people) if (same(p.name)) { p.name = name; changes++; }
+  if (inter.length) await writeJson(INTER, inter);
+
+  const circles = await readCircles();
+  if (circles.members[oldId]) {
+    circles.members[newId] = [...new Set([...(circles.members[newId] ?? []), ...circles.members[oldId]])];
+    if (newId !== oldId) delete circles.members[oldId];
+    await writeJson(CIRCLES, circles);
+  }
+
+  const payees = await readPayees();
+  if (payees[oldId]) {
+    payees[newId] = { ...payees[oldId], ...payees[newId] };
+    if (newId !== oldId) delete payees[oldId];
+    await writeJson(PAYEES, payees);
+  }
+
+  const orbits = await readJson<Record<string, 1 | 2 | 3>>(ORBITS, {});
+  if (orbits[oldId] !== undefined && newId !== oldId) {
+    orbits[newId] = orbits[oldId];
+    delete orbits[oldId];
+    await writeJson(ORBITS, orbits);
+  }
+
+  const VOICES = path.join(DATA, "voiceprints.json");
+  const voices = await readJson<Record<string, number[][]>>(VOICES, {});
+  const key = Object.keys(voices).find((k) => personId(k) === oldId);
+  if (key && key !== name) {
+    voices[name] = [...(voices[name] ?? []), ...voices[key]].slice(-40);
+    delete voices[key];
+    await writeJson(VOICES, voices);
+  }
+  return { id: newId, name, changes };
+}
+
+
+// Choose someone's orbit (1 inner, 2 middle, 3 outer), or null to let Peri decide again.
+export async function setOrbit(person: string, ring: 1 | 2 | 3 | null) {
+  const all = await readJson<Record<string, 1 | 2 | 3>>(ORBITS, {});
+  const id = personId(person);
+  if (ring === null) delete all[id];
+  else all[id] = ring;
+  await writeJson(ORBITS, all);
+  return { id, ring };
+}
+
+
+// Your order for a group of promises: ids in the order you want them (first = top).
+export async function reorderPromises(ids: string[]) {
+  const items = await readPromises();
+  const pos = new Map(ids.map((id, i) => [id, i]));
+  for (const p of items) if (pos.has(p.id)) p.rank = pos.get(p.id)!;
+  await writePromises(items);
+  return { ok: true, count: pos.size };
+}
+
+export const validDate = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+export const validTime = (v: unknown) => (typeof v === "string" && /^\d{2}:\d{2}$/.test(v) ? v : null);

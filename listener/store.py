@@ -12,6 +12,21 @@ def load():
     return json.loads(config.DATA_FILE.read_text(encoding="utf-8"))
 
 
+def recent_context(n=8, hours=6):
+    """Short summaries of the last few conversations, so Claude can tell who "him"/"her" is."""
+    cutoff = now().timestamp() - hours * 3600
+    lines = []
+    for item in load()[:n]:
+        try:
+            if datetime.fromisoformat(item["started_at"]).timestamp() < cutoff:
+                continue
+        except (KeyError, ValueError):
+            continue
+        names = ", ".join(p["name"] for p in item.get("people", []) if p.get("name"))
+        lines.append("- %s (with %s): %s" % (item["title"], names or "unknown", item["summary"]))
+    return "\n".join(lines)
+
+
 def known_people():
     names = []
     for item in load():
@@ -49,19 +64,62 @@ def load_promises():
     return json.loads(config.PROMISES_FILE.read_text(encoding="utf-8"))
 
 
+def _words(title):
+    return {w for w in "".join(c.lower() if c.isalnum() else " " for c in title).split() if len(w) > 2}
+
+
+def already_caught(pr, saved, minutes=30):
+    """True if the same promise was saved in the last half hour (the live quick check usually
+    catches it before the conversation ends): same person and kind, or a near-identical title."""
+    cutoff = (now().timestamp() - minutes * 60)
+    name = (pr.get("for_name") or "").lower()
+    new = _words(pr["title"])
+    for x in saved:
+        if x.get("status") == "dismissed":
+            continue
+        try:
+            at = datetime.fromisoformat(x["heard_at"]).timestamp()
+        except (KeyError, ValueError):
+            continue
+        if at < cutoff:
+            continue
+        old = _words(x["title"])
+        same_title = new and old and len(new & old) / max(len(new | old), 1) >= 0.6
+        same_target = name and (x.get("person_name") or "").lower() == name and x["kind"] == pr["kind"] \
+            and (x.get("amount") or None) == (pr.get("amount") or None)
+        if same_title or same_target:
+            return True
+    return False
+
+
 def save_promises(item, promises, min_confidence=0.6):
     """Promises the wearer made in one saved interaction -> data/promises.json (newest first).
     The person is the name of the voice it was promised to, or None: the app then asks
     "Who is this?" and naming them there teaches the band that voice."""
     people = {p["speaker"]: p for p in item["people"]}
+    saved = load_promises()
+    existing = {(x["interaction_id"], x["title"].lower()) for x in saved}
     new = []
     for pr in promises:
         if pr.get("confidence", 0) < min_confidence:
             continue
+        if (item["id"], pr["title"].lower()) in existing or already_caught(pr, saved):
+            continue                                   # already saved (re-read, or caught live a moment ago)
         to = pr.get("to_speaker")
-        person = people.get(to) if to is not None else None
-        if person and person.get("is_wearer"):
-            to, person = None, None                   # promised "to" the wearer: the target is unclear
+        speaker = people.get(to) if to is not None else None
+        if speaker and speaker.get("is_wearer"):
+            to, speaker = None, None                  # promised "to" the wearer: the target is unclear
+        named = (pr.get("for_name") or "").strip() or None
+        if named:
+            # The wearer said a name ("Mom", "Kelly"). Link to the voice only if it is that person.
+            if speaker and (speaker.get("name") or "").lower().split(" ")[0] == named.lower().split(" ")[0]:
+                person, source = speaker.get("name"), "voice"
+            else:
+                to, person, source = None, named, "named"   # the app asks to pick them from contacts
+        elif speaker:
+            person, source = speaker.get("name"), "voice" if speaker.get("name") else None
+        else:
+            person, source = None, None
         new.append({
             "id": uuid.uuid4().hex[:12],
             "interaction_id": item["id"],
@@ -72,9 +130,12 @@ def save_promises(item, promises, min_confidence=0.6):
             "amount": pr.get("amount"),
             "due_label": pr.get("due_label") or "Soon",
             "due_detail": pr.get("due_detail"),
+            "due_date": pr.get("due_date"),
+            "due_time": pr.get("due_time"),
             "confidence": pr.get("confidence", 0.8),
             "speaker": to,                            # voice it was promised to, in that interaction
-            "person_name": person.get("name") if person else None,
+            "person_name": person,
+            "person_source": source,                  # "voice", "named" (said, not yet picked) or "picked"
             "status": "open",
         })
     if not new:

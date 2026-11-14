@@ -3,7 +3,7 @@
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../components/Icon";
@@ -27,25 +27,59 @@ export default function Mic() {
   const [typed, setTyped] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => () => { recorder.stop().catch(() => undefined); }, [recorder]);
+  // Recording state lives in refs too: presses arrive faster than React re-renders, and the
+  // first press may be interrupted by the microphone permission prompt.
+  const recording = useRef(false);
+  const starting = useRef(false);
+  const pressedAt = useRef(0);
+  const [tapMode, setTapMode] = useState(false);
+
+  useEffect(() => {
+    // Ask for the microphone as soon as the screen opens, not in the middle of a press.
+    AudioModule.requestRecordingPermissionsAsync()
+      .then((perm) => { if (!perm.granted) { setError("Peri needs the microphone. Allow it in Settings, or type instead."); setTyping(true); } })
+      .catch(() => undefined);
+    return () => { if (recording.current) recorder.stop().catch(() => undefined); };
+  }, [recorder]);
 
   async function start() {
+    if (recording.current || starting.current) return;
+    starting.current = true;
     setError("");
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
-      if (!perm.granted) { setError("Peri needs the microphone. You can type instead."); setTyping(true); return; }
+      if (!perm.granted) { setError("Peri needs the microphone. Allow it in Settings, or type instead."); setTyping(true); return; }
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      recording.current = true;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
       setStep("listening");
-    } catch {
-      setError("Couldn't start the microphone. You can type instead.");
+    } catch (e) {
+      setError(`Couldn't start the microphone (${(e as Error).message}). You can type instead.`);
       setTyping(true);
+    } finally {
+      starting.current = false;
     }
   }
 
+  function pressIn() {
+    pressedAt.current = Date.now();
+    if (recording.current) { finish(); return; }   // tap mode: this tap stops it
+    start();
+  }
+
+  function pressOut() {
+    const held = Date.now() - pressedAt.current;
+    if (recording.current && held >= 700) { finish(); return; }   // hold and release
+    // A short tap (or the permission prompt interrupted the hold): keep listening until the next tap.
+    setTapMode(true);
+  }
+
   async function finish(text?: string) {
+    if (!text && !recording.current) return;
+    recording.current = false;
+    setTapMode(false);
     setStep("working");
     try {
       let uri: string | undefined;
@@ -70,6 +104,7 @@ export default function Mic() {
     try {
       await s.addPromises(found.map((p) => ({
         title: p.title, quote, kind: p.kind, amount: p.amount, due_label: p.due_label, due_detail: p.due_detail, person_name: p.person_name,
+        due_date: p.due_date, due_time: p.due_time,
       })));
       router.replace("/");
     } catch (e) {
@@ -97,7 +132,7 @@ export default function Mic() {
           </View>
         ) : (
           <T w="medium" style={{ fontSize: 15, color: colors.soft, textAlign: "center", lineHeight: 22 }}>
-            {listening ? "Say who it's for and what you promised. Release when you're done." : "Try: “Remind me to bring Leo his charger tomorrow, and I owe Mom $40 for groceries.”"}
+            {listening ? (tapMode ? "Say who it's for and what you promised, then tap the button again." : "Say who it's for and what you promised. Release when you're done.") : "Try: “Remind me to bring Leo his charger tomorrow, and I owe Mom $40 for groceries.”"}
           </T>
         )}
         {listening && <Bars />}
@@ -150,12 +185,12 @@ export default function Mic() {
             <View style={{ alignItems: "center", justifyContent: "center" }}>
               {listening && <Ring />}
               <Pressable accessibilityRole="button" accessibilityLabel="Hold to talk"
-                onPressIn={start} onPressOut={() => listening && finish()} delayLongPress={10000}
+                onPressIn={pressIn} onPressOut={pressOut} delayLongPress={10000}
                 style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: listening ? colors.satellite : colors.ink, alignItems: "center", justifyContent: "center" }}>
                 <Icon name="mic" size={30} color={colors.white} stroke={2.4} />
               </Pressable>
             </View>
-            <T w="semibold" style={{ fontSize: 13, color: colors.muted }}>{listening ? "Release when you are done" : "Hold to tell Peri a promise"}</T>
+            <T w="semibold" style={{ fontSize: 13, color: colors.muted }}>{listening ? (tapMode ? "Tap again when you're done" : "Release when you are done") : "Hold (or tap) to tell Peri a promise"}</T>
             <TextButton label="Type it instead" onPress={() => setTyping(true)} />
           </View>
         ) : null}
