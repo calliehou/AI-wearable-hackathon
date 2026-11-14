@@ -59,7 +59,11 @@ export async function POST(req: Request) {
     const people = String(form.get("people") ?? "");
     let text = String(form.get("text") ?? "").trim();
     const audio = form.get("audio");
-    if (!text && audio instanceof Blob) text = await transcribe(await audio.arrayBuffer(), audio.type);
+    if (!text && audio instanceof Blob) {
+      // Phones may label the m4a as "" or application/octet-stream; Deepgram needs an audio type.
+      const type = audio.type.startsWith("audio/") ? audio.type : "audio/mp4";
+      text = await transcribe(await audio.arrayBuffer(), type);
+    }
     if (!text) return NextResponse.json({ error: "Nothing was heard. Try again a little closer to the phone." }, { status: 422 });
     const out = await askJson<{ promises: unknown[] }>({
       system: SYSTEM,

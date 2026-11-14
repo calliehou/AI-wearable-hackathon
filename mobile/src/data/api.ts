@@ -1,6 +1,7 @@
 // Talks to the web app running on the Mac (npm run dev, port 3000). In Expo Go the phone
 // already reaches the Mac for the app bundle, so the same address is used here.
 import Constants from "expo-constants";
+import { File } from "expo-file-system";
 import { Platform } from "react-native";
 import type { Circle, Kind, Person, PromiseType, Todo } from "./types";
 
@@ -114,6 +115,8 @@ export async function parsePromises(input: { uri?: string; text?: string }, peop
   const form = new FormData();
   form.append("people", people.join(", "));
   if (input.text) form.append("text", input.text);
-  if (input.uri) form.append("audio", { uri: input.uri, name: "promise.m4a", type: "audio/mp4" } as unknown as Blob);
+  // Expo's fetch needs a real Blob here (the old { uri, name, type } object is "Unsupported
+  // FormDataPart implementation"); expo-file-system's File is one.
+  if (input.uri) form.append("audio", new File(input.uri), "promise.m4a");
   return call("/api/voice-todo", { method: "POST", body: form }, 45000);
 }
