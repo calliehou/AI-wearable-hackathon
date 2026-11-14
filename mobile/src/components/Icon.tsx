@@ -4,7 +4,7 @@ import Svg, { Circle, Ellipse, Path, Rect } from "react-native-svg";
 export type IconName =
   | "orbit" | "contacts" | "mic" | "chat" | "band" | "bell" | "plus" | "back" | "close" | "search" | "check" | "tick"
   | "send" | "phone" | "gift" | "dollar" | "calendar" | "task" | "pin" | "speaker" | "play" | "pause" | "wave"
-  | "question" | "chevronRight" | "chevronDown" | "arrow" | "edit" | "lock" | "sparkle" | "people" | "lines" | "file";
+  | "question" | "grip" | "chevronRight" | "chevronDown" | "arrow" | "edit" | "lock" | "sparkle" | "people" | "lines" | "file";
 
 export function Icon({ name, size = 20, color = "#111111", stroke = 2.2, fill = "none" }: {
   name: IconName; size?: number; color?: string; stroke?: number; fill?: string;
@@ -36,6 +36,7 @@ export function Icon({ name, size = 20, color = "#111111", stroke = 2.2, fill = 
       {name === "pause" && <Path {...p} d="M8 5v14M16 5v14" />}
       {name === "wave" && <Path {...p} d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4" />}
       {name === "question" && (<><Path {...p} d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6" /><Circle cx="12" cy="17.5" r="1.1" fill={color} /></>)}
+      {name === "grip" && (<>{[7, 12, 17].flatMap((y) => [9, 15].map((x) => <Circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" fill={color} />))}</>)}
       {name === "chevronRight" && <Path {...p} d="M9 6l6 6-6 6" />}
       {name === "chevronDown" && <Path {...p} d="M6 9l6 6 6-6" />}
       {name === "arrow" && <Path {...p} d="M5 12h14M13 6l6 6-6 6" />}

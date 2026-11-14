@@ -10,6 +10,7 @@ import { Centered, Ring } from "../components/Orbit";
 import { Avatar, Pill, Section, T } from "../components/ui";
 import { WhoPicker } from "../components/WhoPicker";
 import { confirmDelete } from "../components/confirmDelete";
+import { DragList, type Handle } from "../components/DragList";
 import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
 import type { Person, Todo } from "../data/types";
@@ -27,7 +28,8 @@ export default function MyOrbit() {
   const [voice, setVoice] = useState<UnknownVoice | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
-  const [ordering, setOrdering] = useState<"today" | "week" | "other" | null>(null);
+  const [ordering, setOrdering] = useState<"today" | null>(null);
+  const [dragging, setDragging] = useState(false);
   // Move a promise up/down (or left/right) within its section and save the new order.
   const move = (list: Todo[], i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -36,7 +38,7 @@ export default function MyOrbit() {
     [ids[i], ids[j]] = [ids[j], ids[i]];
     s.reorder(ids);
   };
-  const orderButton = (key: "today" | "week" | "other", n: number) => n > 1 ? (
+  const orderButton = (key: "today", n: number) => n > 1 ? (
     <Pressable accessibilityRole="button" onPress={() => setOrdering(ordering === key ? null : key)} hitSlop={8}
       style={{ height: 30, borderRadius: 15, paddingHorizontal: 12, justifyContent: "center", backgroundColor: ordering === key ? colors.ink : colors.card }}>
       <T style={{ fontSize: 12, color: ordering === key ? colors.white : colors.ink }}>{ordering === key ? "Done" : "Edit order"}</T>
@@ -72,7 +74,7 @@ export default function MyOrbit() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.white }}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: NAV_SPACE }}
+      <ScrollView scrollEnabled={!dragging} contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: NAV_SPACE }}
         refreshControl={<RefreshControl refreshing={pulling} onRefresh={async () => { setPulling(true); await s.refresh(); setPulling(false); }} />}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -137,17 +139,17 @@ export default function MyOrbit() {
             <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 20 }}>Nothing due today. Your band is listening for new promises.</T>
           )}
 
-          <Section title={`This week · ${week.length}`} right={orderButton("week", week.length)} />
+          <Section title={`This week · ${week.length}`} right={week.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {week.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
-              order={ordering === "week" ? { first: i === 0, last: i === week.length - 1, move: (d) => move(week, i, d) } : undefined} />)}
+            <DragList items={week} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
+              render={(t, handle) => <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} />} />
             {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing else due this week.</T>}
           </View>
 
-          <Section title={`Later · ${other.filter((t) => t.status === "open").length}`} right={orderButton("other", other.length)} />
+          <Section title={`Later · ${other.filter((t) => t.status === "open").length}`} right={other.length > 1 ? <T style={{ fontSize: 12, color: colors.muted }}>Drag ⋮⋮ to reorder</T> : null} />
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {other.map((t, i) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)}
-              order={ordering === "other" ? { first: i === 0, last: i === other.length - 1, move: (d) => move(other, i, d) } : undefined} />)}
+            <DragList items={other} keyOf={(t) => t.id} onDragging={setDragging} onReorder={(ids) => s.reorder(ids)}
+              render={(t, handle) => <WeekRow todo={t} onWho={() => setPicking(t.id)} handle={handle} />} />
             {!other.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>Nothing later.</T>}
           </View>
 
@@ -249,7 +251,7 @@ function Arrows({ order, horizontal }: { order: Order; horizontal?: boolean }) {
   return <View style={{ flexDirection: horizontal ? "row" : "column", gap: 4 }}>{btn(-1, order.first)}{btn(1, order.last)}</View>;
 }
 
-function WeekRow({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?: Order }) {
+function WeekRow({ todo, onWho, order, handle }: { todo: Todo; onWho: () => void; order?: Order; handle?: Handle }) {
   const s = useStore();
   const p = s.person(todo.personId);
   const done = todo.status === "done";
@@ -278,6 +280,12 @@ function WeekRow({ todo, onWho, order }: { todo: Todo; onWho: () => void; order?
           <T w="extrabold" style={{ fontSize: 12 }}>{done ? "Kept" : todo.dueLabel}</T>
         </View>
       </Pressable>
+      {handle ? (
+        <View {...handle.handlers} accessibilityLabel={`Drag to reorder ${todo.title}`} hitSlop={8}
+          style={{ width: 30, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: handle.dragging ? colors.white : "transparent" }}>
+          <Icon name="grip" size={18} color={handle.dragging ? colors.ink : colors.grey} />
+        </View>
+      ) : null}
       {order ? <Arrows order={order} /> : (
         <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${todo.title}`} onPress={() => confirmDelete(todo, s.deletePromise)} hitSlop={8}
           style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
