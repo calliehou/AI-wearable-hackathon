@@ -1,0 +1,15 @@
+# Secrets (keep the example template tracked)
+.env
+.env.local
+.env.*.local
+
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+.vercel/
+
+# OS / editor
+.DS_Store
+*.log
