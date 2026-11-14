@@ -266,7 +266,11 @@ All routes are under `http://<server>:3000/api`. The phone app's client is
 
 ## Team
 
-- **Callie Hou**: design engineering, UI and pipeline
-- **Mapa**: business, data, band integration, prompts and pitch
+| Name | Role | Email |
+|---|---|---|
+| **Callie Hou** | Design engineering, UI and pipeline | [hcallie@stanford.edu](mailto:hcallie@stanford.edu) |
+| **Mapa Garzon** | Business, data, band integration, prompts and pitch | [mpgarzon@stanford.edu](mailto:mpgarzon@stanford.edu) |
+
+Questions, ideas or want to try Peri? Feel free to contact us.
 
 Built at VexoHacks, Y Combinator, San Francisco, November 2026.
