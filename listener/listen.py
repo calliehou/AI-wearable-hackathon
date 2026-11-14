@@ -169,6 +169,9 @@ class Recorder:
         words = self.ears.words
         self.tracker.assign(words, self.pcm_at, final=True)
         first, last = self.done_upto, len(words) - 1
+        if last >= first:
+            n = self.tracker.regroup(words, first, last)
+            log("Voices in this conversation after regrouping: %d" % n)
         pending = words[first:]
         self.done_upto = len(words)
         if pending:

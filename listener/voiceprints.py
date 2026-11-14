@@ -20,8 +20,14 @@ import config
 
 MODEL_SOURCE = "speechbrain/spkrec-ecapa-voxceleb"
 MODEL_DIR = os.path.expanduser("~/.cache/vexo-voiceprints/ecapa")
-MIN_SECONDS = 1.0              # shorter stretches are too little sound to recognise anyone
-MATCH = 0.40                   # similarity needed to say "same person" (same voice ~0.6-0.9, different ~0-0.3)
+MIN_SECONDS = 2.0              # a stretch this long may start a new voice
+SHORT_SECONDS = 1.0            # stretches from this long are matched to a known voice (never start one)
+# Through the band's mic the same person scores ~0.35-0.6 and stretches under 2 s are noise
+# (measured on our own recordings, 14 Nov 2026); clean audio scores ~0.9.
+MATCH = 0.35                   # similarity to a voice's average needed to say "same person"
+MATCH_NAMED = 0.40             # ...to a named person's saved voice
+MARGIN = 0.05                  # and it must beat the second-best voice by this much
+SUBSTANTIAL = 4.0              # seconds of speech before a voice counts as its own person
 KEEP = 40                      # voiceprints kept per person (newest)
 
 _model = None
@@ -107,6 +113,13 @@ def forget_vectors(vectors):
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(raw), encoding="utf-8")
         tmp.replace(path)
+
+
+def loudness_db(pcm: bytes) -> float:
+    samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32)
+    if samples.size == 0:
+        return -120.0
+    return float(20 * np.log10(np.sqrt(np.mean(samples ** 2)) / 32768.0 + 1e-9))
 
 
 def centroid(vectors):
