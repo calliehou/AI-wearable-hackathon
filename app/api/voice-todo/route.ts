@@ -1,34 +1,44 @@
-// Screen 9 of the Peri app: "say a promise out loud". The phone sends the recording (or
-// typed words); Deepgram turns speech into text; Claude reads who it's for, what, and when.
-// Keys stay on this computer (.env): the phone never sees them.
-import Anthropic from "@anthropic-ai/sdk";
+// "Hold mic · tell a promise" in the Peri app. The phone sends the recording (or typed
+// words); Deepgram turns speech into text; Claude sorts it into one or more promises
+// (who it's for, what, when). Keys stay on this computer (.env): the phone never sees them.
 import { NextResponse } from "next/server";
+import { askJson, errorResponse } from "@/lib/claude";
 
 export const dynamic = "force-dynamic";
 
 const SCHEMA = {
   type: "object",
   properties: {
-    is_promise: { type: "boolean" },
-    person_name: { type: ["string", "null"] },
-    title: { type: "string" },
-    kind: { type: "string", enum: ["money", "send", "call", "bring", "meet", "other"] },
-    amount: { type: ["number", "null"] },
-    due_label: { type: "string" },
-    due_detail: { type: ["string", "null"] },
+    promises: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          person_name: { type: ["string", "null"] },
+          title: { type: "string" },
+          kind: { type: "string", enum: ["money", "gift", "task", "plan", "call"] },
+          amount: { type: ["number", "null"] },
+          due_label: { type: "string" },
+          due_detail: { type: ["string", "null"] },
+        },
+        required: ["person_name", "title", "kind", "amount", "due_label", "due_detail"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["is_promise", "person_name", "title", "kind", "amount", "due_label", "due_detail"],
+  required: ["promises"],
   additionalProperties: false,
-} as const;
+};
 
-const SYSTEM = `You turn one spoken sentence into a to-do the speaker promised another person.
-- person_name: the person it's for, exactly as said ("Ana", "Mom"). If one of the known people clearly matches, use that exact known name. If no person is named, null. Never invent a name.
-- title: short imperative, max 6 words, without the person's name unless needed ("Send the lease", "Pay back lunch").
-- kind: money (paying, owing, sending money), send (a file, link, photos), call, bring, meet, or other.
+const SYSTEM = `You sort what the speaker just said into the promises they made to other people. One sentence can hold several ("bring Leo his charger tomorrow, and I owe Mom $40").
+For each promise:
+- person_name: who it's for, exactly as said ("Leo", "Mom"). If one of the known people clearly matches, use that exact known name. If nobody is named, null. Never invent a name.
+- title: short imperative, max 6 words, with the person's name when natural ("Bring Leo his charger", "Pay Mom back $40").
+- kind: money (paying, owing, sending money), gift (a present or an occasion), task (send, bring, do something), plan (meet up, an outing), or call.
 - amount: the number for money promises, else null.
-- due_label: a short label like "Today", "Tonight", "Tmrw", "Fri", "Mon", or "Soon" if no time was given.
-- due_detail: a time like "5:00 PM" if said or clearly implied (by Friday -> "5:00 PM"), else null.
-- is_promise: false if the sentence is not something the speaker will do for someone.`;
+- due_label: "Today", "Tonight", "Tmrw", a weekday like "Fri", or "Soon" if no time was given.
+- due_detail: a time like "5:00 PM" if said or clearly implied, else null.
+If nothing said is a promise to someone, return an empty list.`;
 
 async function transcribe(audio: ArrayBuffer, type: string): Promise<string> {
   const key = process.env.DEEPGRAM_API_KEY;
@@ -51,26 +61,14 @@ export async function POST(req: Request) {
     const audio = form.get("audio");
     if (!text && audio instanceof Blob) text = await transcribe(await audio.arrayBuffer(), audio.type);
     if (!text) return NextResponse.json({ error: "Nothing was heard. Try again a little closer to the phone." }, { status: 422 });
-
-    const client = new Anthropic();
-    const response = await client.beta.messages.create({
-      model: "claude-opus-5-5",
-      max_tokens: 4000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      thinking: { type: "adaptive" },
-      output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
+    const out = await askJson<{ promises: unknown[] }>({
       system: SYSTEM,
-      messages: [{ role: "user", content: `Known people: ${people || "(none)"}\nToday is ${new Date().toDateString()}.\nSentence: "${text}"` }],
+      schema: SCHEMA,
+      user: `Known people: ${people || "(none)"}\nToday is ${new Date().toDateString()}.\nWhat they said: "${text}"`,
     });
-    if (response.stop_reason === "refusal") return NextResponse.json({ error: "Couldn't read that one. Try saying it differently." }, { status: 422 });
-    const block = response.content.find((b) => b.type === "text");
-    if (!block || block.type !== "text") throw new Error("No answer from Claude.");
-    return NextResponse.json({ quote: text, ...JSON.parse(block.text) });
+    return NextResponse.json({ quote: text, promises: out.promises });
   } catch (e) {
-    if (e instanceof Anthropic.AuthenticationError) return NextResponse.json({ error: "Claude did not accept the API key." }, { status: 500 });
-    if (e instanceof Anthropic.RateLimitError) return NextResponse.json({ error: "Too many requests; wait a moment." }, { status: 429 });
-    if (e instanceof Anthropic.APIConnectionError) return NextResponse.json({ error: "This computer can't reach Claude." }, { status: 502 });
-    return NextResponse.json({ error: (e as Error).message || "Something went wrong." }, { status: 500 });
+    const r = errorResponse(e);
+    return NextResponse.json({ error: r.error }, { status: r.status });
   }
 }

@@ -5,12 +5,16 @@ import {
   PlusJakartaSans_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/plus-jakarta-sans";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
-import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { WELCOMED } from "../data/prefs";
 import { askNotifications, StoreProvider } from "../data/store";
+
+
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -19,15 +23,23 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
   });
+
+  useEffect(() => {
+    if (!loaded) return;
+    // First launch: the Welcome screen (connect the band, import contacts).
+    AsyncStorage.getItem(WELCOMED).then((v) => { if (!v) router.replace("/welcome"); }).catch(() => undefined);
+  }, [loaded]);
+
   useEffect(() => {
     askNotifications();
-    // Tapping a "New promise" notification opens that promise.
+    // Tapping a "Promise heard" notification opens that promise.
     const sub = Notifications.addNotificationResponseReceivedListener((r) => {
       const id = r.notification.request.content.data?.todoId;
-      if (typeof id === "string") router.push({ pathname: "/todo/[id]", params: { id } });
+      if (typeof id === "string") router.push({ pathname: "/promise/[id]", params: { id } });
     });
     return () => sub.remove();
   }, []);
+
   if (!loaded) return null;
   return (
     <SafeAreaProvider>
@@ -35,9 +47,11 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#FFFFFF" } }}>
           <Stack.Screen name="index" options={{ animation: "none" }} />
-          <Stack.Screen name="people" options={{ animation: "none" }} />
-          <Stack.Screen name="kept" options={{ animation: "none" }} />
+          <Stack.Screen name="contacts" options={{ animation: "none" }} />
+          <Stack.Screen name="ask" options={{ animation: "none" }} />
           <Stack.Screen name="band" options={{ animation: "none" }} />
+          <Stack.Screen name="welcome" options={{ animation: "fade", gestureEnabled: false }} />
+          <Stack.Screen name="mic" options={{ presentation: "modal" }} />
         </Stack>
       </StoreProvider>
     </SafeAreaProvider>

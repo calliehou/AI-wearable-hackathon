@@ -1,30 +1,42 @@
-// A to-do the band heard you promise someone ("I'll send you the deck Monday").
+// A promise the band heard you make to someone ("I'll send you $120 tonight").
 
-export type Kind = "money" | "send" | "call" | "bring" | "meet" | "other";
+export type Kind = "money" | "gift" | "task" | "plan" | "send" | "call" | "bring" | "meet" | "other";
+export type PromiseType = "Money" | "Gift" | "Task" | "Plan";
 
 export type Person = {
   id: string;
   name: string;
   phone?: string;
   email?: string;
-  relation?: string; // "friend", "family"...
-  lastHeard?: string; // "Heard 3 days ago"
-  recap?: string; // spoken recap of the last week, from the band's conversations
+  lastHeard: string; // "Heard 2h ago"
+  lastTalk: string; // "2h", "3w", "—"
+  moments: number; // conversations in the last 30 days
+  open: number;
+  kept: number;
+  ring: 1 | 2 | 3; // orbit: 1 inner, 2 middle, 3 outer / drifting
+  drifting: boolean;
+  quietFor: string | null;
+  circles: string[];
 };
 
 export type Todo = {
   id: string;
   title: string; // "Send Diego $120"
-  quote: string; // what was said: "I'll send you $120 tonight"
+  quote: string; // what you said
   kind: Kind;
+  type: PromiseType;
   personId: string | null; // null: the band didn't catch who it was. Pick them from contacts.
-  amount?: number; // money promises
-  note?: string; // "Tickets for Friday"
+  personName: string | null;
+  amount?: number;
+  note?: string;
   dueLabel: string; // "Tonight", "Mon"
   dueDetail?: string; // "8:00 PM"
-  heardLabel: string; // "heard yesterday"
+  heardLabel: string; // "heard 2h ago"
   heardAt: string; // "9:41 AM"
-  confidence: number; // 0..1, how sure the band is this was a promise
-  attachment?: string; // "Q3 deck · latest version from Drive"
+  heardIso: string;
+  confidence: number;
   status: "open" | "done" | "dismissed";
+  voiceKnown: boolean;
 };
+
+export type Circle = { name: string; color: string };

@@ -36,7 +36,8 @@ Your job:
    - `to_speaker`: the speaker number of the person it was promised to, or null if unclear.
    - `title`: short imperative, at most 6 words ("Send the Q3 deck", "Pay back lunch").
    - `quote`: the wearer's own words, shortened to the promise.
-   - `kind`: money, send (a file, link, photos), call, bring, meet, or other.
+   - `kind`: money (paying, owing, sending money), gift (a present for someone or an occasion),
+     task (send, bring, do something), plan (meet up, an outing), or call.
    - `amount`: the number for money promises, else null.
    - `due_label`: "Today", "Tonight", "Tmrw", a weekday like "Fri", or "Soon" if none was said.
    - `due_detail`: a time like "5:00 PM" if said or clearly implied, else null.

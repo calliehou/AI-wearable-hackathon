@@ -35,7 +35,7 @@ SCHEMA = {
                     "to_speaker": {"type": ["integer", "null"]},
                     "title": {"type": "string"},
                     "quote": {"type": "string"},
-                    "kind": {"type": "string", "enum": ["money", "send", "call", "bring", "meet", "other"]},
+                    "kind": {"type": "string", "enum": ["money", "gift", "task", "plan", "call"]},
                     "amount": {"type": ["number", "null"]},
                     "due_label": {"type": "string"},
                     "due_detail": {"type": ["string", "null"]},

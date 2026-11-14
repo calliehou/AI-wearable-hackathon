@@ -34,3 +34,6 @@ data/live_names.jsonl
 data/*.taken
 data/promises.json
 data/recaps/
+data/cache/
+data/control.json
+data/circles.json

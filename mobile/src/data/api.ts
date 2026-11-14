@@ -1,7 +1,7 @@
 // Talks to the web app running on the Mac (npm run dev, port 3000). In Expo Go the phone
 // already reaches the Mac for the app bundle, so the same address is used here.
 import Constants from "expo-constants";
-import type { Kind, Todo } from "./types";
+import type { Circle, Kind, Person, PromiseType, Todo } from "./types";
 
 export function serverUrl(): string | null {
   const host = Constants.expoConfig?.hostUri?.split(":")[0];
@@ -32,27 +32,61 @@ async function call<T>(path: string, init?: RequestInit, timeoutMs = 15000): Pro
   }
 }
 
+const json = (method: string, body: unknown): RequestInit => ({
+  method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+});
+
 // ---- what the band heard
 
-export type ServerPerson = { id: string; name: string; lastHeard: string; lastAt: string };
-export type ServerTodo = Omit<Todo, "personId"> & { personId: string | null; personName: string | null; heardIso: string; voiceKnown: boolean };
 export type UnknownVoice = { interaction_id: string; speaker: number; quote: string; title: string; heard: string; seconds: number };
-export type Snapshot = { people: ServerPerson[]; todos: ServerTodo[]; unknownVoices: UnknownVoice[] };
+export type Rec = { kind: string; personId: string | null; title: string; sub: string; cta: string; target: string };
+export type Snapshot = {
+  people: (Omit<Person, "phone" | "email"> & { lastAt: string })[];
+  todos: Todo[];
+  unknownVoices: UnknownVoice[];
+  circles: Circle[];
+  recs: Rec[];
+  stats: { promisesToday: number; conversationsToday: number };
+  band: { running: boolean; connected: boolean; recording: boolean; paused: boolean };
+};
 
 export const fetchSnapshot = () => call<Snapshot>("/api/peri", { cache: "no-store" } as RequestInit, 8000);
 
-export const updatePromise = (id: string, change: { person_name?: string | null; status?: Todo["status"] }) =>
-  call(`/api/peri/promises/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+export type PromiseChange = {
+  person_name?: string | null; status?: Todo["status"]; type?: PromiseType; due_label?: string;
+  due_detail?: string | null; amount?: number | null; title?: string;
+};
+export const updatePromise = (id: string, change: PromiseChange) => call(`/api/peri/promises/${id}`, json("PATCH", change));
 
 export const nameVoice = (v: UnknownVoice, name: string) =>
-  call("/api/peri/voices", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ interaction_id: v.interaction_id, speaker: v.speaker, name }),
-  });
+  call("/api/peri/voices", json("POST", { interaction_id: v.interaction_id, speaker: v.speaker, name }));
 
-export const createPromise = (p: {
+export type NewPromise = {
   title: string; quote: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null; person_name: string | null;
-}) => call("/api/peri/promises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+};
+export const createPromise = (p: NewPromise) => call<{ id: string }>("/api/peri/promises", json("POST", p));
+
+export const createCircle = (name: string, color: string) => call("/api/peri/circles", json("POST", { name, color }));
+export const setMembership = (person: string, circle: string, member: boolean) =>
+  call("/api/peri/circles/members", json("POST", { person, circle, member }));
+
+export const pauseBand = (paused: boolean) => call("/api/peri/band", json("POST", { paused }));
+
+// ---- things Claude works out on the Mac
+
+export type About = {
+  who: string | null; right_now: string | null; good_to_know: string | null; interests: string[];
+  places: { name: string; when: string; note: string }[];
+  log: { id: string; title: string; when: string; note: string }[]; count: number; error?: string;
+};
+export const fetchAbout = (name: string) => call<About>(`/api/peri/about?name=${encodeURIComponent(name)}`, undefined, 60000);
+
+export type Gifts = { occasion: string | null; said: string | null; ideas: { title: string; why: string; price: string }[]; count: number };
+export const fetchGifts = (name: string) => call<Gifts>(`/api/peri/gifts?name=${encodeURIComponent(name)}`, undefined, 60000);
+
+export type AskAnswer = { reply: string; applied: { id: string; title: string; due_label: string; status: string }[] };
+export const askPeri = (message: string, history: { role: "user" | "peri"; text: string }[]) =>
+  call<AskAnswer>("/api/peri/ask", json("POST", { message, history }), 60000);
 
 // Spoken recap of the last week with someone (ElevenLabs on the Mac).
 export type Recap = { text: string; audio: string | null; note?: string };
@@ -61,24 +95,13 @@ export async function fetchRecap(name: string): Promise<Recap> {
   return { ...r, audio: r.audio ? `${base()}${r.audio}` : null };
 }
 
-// ---- screen 9: say a promise out loud
+// ---- hold mic: tell Peri one or more promises
 
-export type Parsed = {
-  quote: string;
-  is_promise: boolean;
-  person_name: string | null;
-  title: string;
-  kind: Kind;
-  amount: number | null;
-  due_label: string;
-  due_detail: string | null;
-};
-
-// Sends a recording (file uri) or typed words; returns what Claude understood.
-export async function parsePromise(input: { uri?: string; text?: string }, people: string[]): Promise<Parsed> {
+export type Parsed = { person_name: string | null; title: string; kind: Kind; amount: number | null; due_label: string; due_detail: string | null };
+export async function parsePromises(input: { uri?: string; text?: string }, people: string[]): Promise<{ quote: string; promises: Parsed[] }> {
   const form = new FormData();
   form.append("people", people.join(", "));
   if (input.text) form.append("text", input.text);
   if (input.uri) form.append("audio", { uri: input.uri, name: "promise.m4a", type: "audio/mp4" } as unknown as Blob);
-  return call<Parsed>("/api/voice-todo", { method: "POST", body: form }, 30000);
+  return call("/api/voice-todo", { method: "POST", body: form }, 45000);
 }

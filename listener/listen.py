@@ -271,6 +271,13 @@ class Recorder:
             self.flush()
 
 
+def read_paused():
+    try:
+        return bool(json.loads(config.CONTROL_FILE.read_text(encoding="utf-8")).get("paused"))
+    except (OSError, ValueError):
+        return False
+
+
 def connect(transport):
     options = {}
     if transport == "sim":
@@ -303,8 +310,23 @@ def run_always(transport, source, gap, longest, stop_after=None):
         try:
             rec.open()
             band.configure(audio=True, events=True)          # solid blue: the microphone is on
+            paused = False
             while band.connected:
                 time.sleep(0.5)
+                # The Peri app's "Listening for promises" switch (data/control.json).
+                want_pause = read_paused()
+                if want_pause != paused:
+                    paused = want_pause
+                    if paused:
+                        rec.flush()
+                        band.configure(audio=False, events=True)
+                        log("Paused from the Peri app: the band's microphone is off.")
+                    else:
+                        band.configure(audio=True, events=True)
+                        log("Listening again.")
+                if paused:
+                    rec.live(connected=True)
+                    continue
                 if rec.ears.closed:                          # Deepgram hung up: open a new stream
                     log("The speech service disconnected; reconnecting (nothing said so far is lost).")
                     rec.close()

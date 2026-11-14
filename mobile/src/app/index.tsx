@@ -1,215 +1,214 @@
-// Screen 1 · Promises list.
+// 01 · My orbit (home): your people on three rings, closest in the middle; what's due today;
+// this week's promises; and voices the band heard but couldn't name.
 import { router } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RingArt } from "../components/Art";
-import { BottomNav } from "../components/BottomNav";
-import { Icon, kindIcon } from "../components/Icon";
-import { Avatar, QuoteBubble, T } from "../components/ui";
-import { WhoPicker, WhoPill } from "../components/WhoPicker";
+import { BottomNav, NAV_SPACE } from "../components/BottomNav";
+import { Icon, PeriMark, typeIcon } from "../components/Icon";
+import { Centered, Ring } from "../components/Orbit";
+import { Avatar, Pill, Section, T } from "../components/ui";
+import { WhoPicker } from "../components/WhoPicker";
 import type { UnknownVoice } from "../data/api";
 import { useStore } from "../data/store";
-import type { Todo } from "../data/types";
-import { colors, kindTile } from "../theme";
+import type { Person, Todo } from "../data/types";
+import { CARD_TONE, CIRCLE_DOTS, colors } from "../theme";
 
-const TODAY = ["Tonight", "Today"];
+const TODAY = ["Today", "Tonight"];
 
-export default function Promises() {
-  const { todos, person, people, setStatus, setTodoPerson, unknownVoices, nameVoice, ready, error, refresh, contactsStatus, askContacts } = useStore();
+export default function MyOrbit() {
+  const s = useStore();
   const insets = useSafeAreaInsets();
-  const [picking, setPicking] = useState<string | null>(null);
+  const [circle, setCircle] = useState<string | null>(null);
   const [voice, setVoice] = useState<UnknownVoice | null>(null);
+  const [picking, setPicking] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
-  const pickingTodo = picking ? todos.find((t) => t.id === picking) : undefined;
-  const open = todos.filter((t) => t.status === "open");
-  const today = open.filter((t) => TODAY.includes(t.dueLabel));
-  const featured = today.find((t) => t.kind === "money") ?? today[0];
-  const rest = open.filter((t) => t !== featured);
 
-  // People with something open, in order of their first open to-do.
-  const withOpen = people
-    .map((p) => ({ p, n: open.filter((t) => t.personId === p.id).length }))
-    .filter((x) => x.n > 0)
-    .sort((a, b) => open.findIndex((t) => t.personId === a.p.id) - open.findIndex((t) => t.personId === b.p.id));
-  const unknown = open.filter((t) => !t.personId);
+  const inCircle = (p?: Person) => !circle || !!p?.circles.includes(circle);
+  const people = s.people.filter((p) => inCircle(p));
+  const open = s.todos.filter((t) => t.status === "open" && (!circle || inCircle(s.person(t.personId))));
+  const today = open.filter((t) => TODAY.includes(t.dueLabel));
+  const week = s.todos.filter((t) => !TODAY.includes(t.dueLabel) && t.status !== "dismissed" && (!circle || inCircle(s.person(t.personId))));
+  const dueToday = new Set(today.map((t) => t.personId));
+
+  const planet = (p: Person, size: number) => ({
+    key: p.id, size,
+    node: (
+      <Pressable accessibilityRole="button" accessibilityLabel={`${p.name}${p.open ? `, ${p.open} open` : ""}${p.drifting ? ", drifting" : ""}`}
+        onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}>
+        <Avatar name={p.name} size={size} color={s.personColor(p)} badge={p.open || undefined} ring={dueToday.has(p.id)} faded={p.drifting} border={dueToday.has(p.id)} />
+      </Pressable>
+    ),
+  });
+  const dots = (n: number) => Array.from({ length: n }, (_, i) => ({ key: `dot${i}`, size: 10, node: <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.dot }} /> }));
+  const inner = people.filter((p) => p.ring === 1).slice(0, 5);
+  const middle = people.filter((p) => p.ring === 2).slice(0, 6);
+  const outer = people.filter((p) => p.ring === 3).slice(0, 7);
+  const pickingTodo = picking ? s.todo(picking) : undefined;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.white }}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 4, paddingBottom: 140 }}
-        refreshControl={<RefreshControl refreshing={pulling} onRefresh={async () => { setPulling(true); await refresh(); setPulling(false); }} />}>
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, paddingHorizontal: 20 }}>
-          <Pressable
-            accessibilityRole="button" accessibilityLabel="Notifications"
-            onPress={() => featured && router.push({ pathname: "/nudge/[id]", params: { id: featured.id } })}
-            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}
-          >
-            <Icon name="bell" size={20} stroke={2} />
-            <View style={{ position: "absolute", top: 9, right: 11, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.red, borderWidth: 2, borderColor: colors.card }} />
-          </Pressable>
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#CDEBD6", alignItems: "center", justifyContent: "center" }}>
-            <T w="extrabold" style={{ fontSize: 17 }}>M</T>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: NAV_SPACE }}
+        refreshControl={<RefreshControl refreshing={pulling} onRefresh={async () => { setPulling(true); await s.refresh(); setPulling(false); }} />}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <PeriMark size={26} bg={null} fg={colors.ink} />
+            <T w="extrabold" style={{ fontSize: 22, letterSpacing: -1 }}>peri</T>
           </View>
-        </View>
-
-        <View style={{ paddingHorizontal: 20, marginTop: 12 }}>
-          <T w="extrabold" style={{ fontSize: 36, letterSpacing: -1, lineHeight: 40 }}>Promises</T>
-          <T w="medium" style={{ fontSize: 15, color: colors.muted, marginTop: 4 }}>
-            {open.length} open · {today.length} due today
-          </T>
-        </View>
-
-        {error && (
-          <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: "#FFF1E8", borderRadius: 18, padding: 14 }}>
-            <T w="extrabold" style={{ fontSize: 14 }}>Not connected to your band</T>
-            <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 4, lineHeight: 18 }}>{error}</T>
-          </View>
-        )}
-        {!ready && !error && <ActivityIndicator style={{ marginTop: 30 }} color={colors.ink} />}
-
-        {contactsStatus === "undetermined" && ready && (
-          <Pressable accessibilityRole="button" onPress={askContacts}
-            style={{ marginHorizontal: 20, marginTop: 14, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.card, borderRadius: 20, padding: 14 }}>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" }}>
-              <Icon name="people" size={20} color={colors.white} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <T w="extrabold" style={{ fontSize: 14 }}>Connect your contacts</T>
-              <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>So you can tell Peri who each voice belongs to</T>
-            </View>
-            <Icon name="chevronRight" size={18} color={colors.grey} stroke={2.4} />
-          </Pressable>
-        )}
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 4 }}>
-          {withOpen.map(({ p, n }, i) => (
-            <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`Open ${p.name}'s contact card`}
-              onPress={() => router.push({ pathname: "/person/[id]", params: { id: p.id } })}
-              style={{ alignItems: "center", gap: 6, width: 60 }}>
-              <Avatar name={p.name} size={56} badge={n} ring={i === 0 ? colors.orangeDot : undefined} />
-              <T style={{ fontSize: 12 }} numberOfLines={1}>{p.name.split(" ")[0]}</T>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Notifications and suggestions" onPress={() => router.replace("/ask")}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
+              <Icon name="bell" size={20} stroke={2} />
+              {s.recs.length > 0 && <View style={{ position: "absolute", top: 9, right: 11, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.satellite, borderWidth: 2, borderColor: colors.card }} />}
             </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Your Vexo band" onPress={() => router.replace("/band")}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" }}>
+              <T w="extrabold" style={{ fontSize: 16, color: colors.white }}>M</T>
+            </Pressable>
+          </View>
+        </View>
+
+        <T w="extrabold" style={{ fontSize: 36, letterSpacing: -1.2, marginTop: 10, paddingHorizontal: 20 }}>My orbit</T>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 12 }}>
+          <Pill label={`All ${s.people.length}`} selected={!circle} onPress={() => setCircle(null)} />
+          {s.circles.map((c) => (
+            <Pill key={c.name} label={c.name} dot={CIRCLE_DOTS[c.name] ?? c.color} selected={circle === c.name} onPress={() => setCircle(circle === c.name ? null : c.name)} />
           ))}
-          {unknown.length > 0 && (
-            <Pressable accessibilityRole="button" accessibilityLabel="Choose who an unassigned promise is with"
-              onPress={() => setPicking(unknown[0].id)} style={{ alignItems: "center", gap: 6, width: 60 }}>
-              <Avatar name={null} unknown size={56} badge={unknown.length} />
-              <T style={{ fontSize: 12, color: colors.muted }}>Who?</T>
-            </Pressable>
-          )}
-          <View style={{ alignItems: "center", gap: 6, width: 60 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Add a promise"
-              style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderStyle: "dashed", borderColor: colors.dashed, alignItems: "center", justifyContent: "center" }}>
-              <Icon name="plus" size={20} stroke={2.4} />
-            </Pressable>
-            <T style={{ fontSize: 12, color: colors.muted }}>Add</T>
-          </View>
+          <Pill label="Tag" dashed onPress={() => router.push("/circles")} />
         </ScrollView>
 
-        {featured && (
-          <>
-            <T w="extrabold" style={{ fontSize: 14, marginTop: 18, marginLeft: 20 }}>Due today</T>
-            <FeaturedCard todo={featured} name={person(featured.personId)?.name ?? null} onWho={() => setPicking(featured.id)} />
-          </>
-        )}
-
-        {unknownVoices.length > 0 && (
-          <>
-            <T w="extrabold" style={{ fontSize: 14, marginTop: 22, marginLeft: 20 }}>Who is this?</T>
-            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginLeft: 20, marginTop: 2 }}>Name a voice once and your band recognises it from then on.</T>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 10 }}>
-              {unknownVoices.map((v) => (
-                <Pressable key={`${v.interaction_id}-${v.speaker}`} accessibilityRole="button" accessibilityLabel={`Name the voice that said: ${v.quote}`}
-                  onPress={() => setVoice(v)}
-                  style={{ width: 240, backgroundColor: colors.card, borderRadius: 22, padding: 14, gap: 10 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <Avatar name={null} unknown size={36} />
-                    <T w="semibold" style={{ flex: 1, fontSize: 12, color: colors.muted }} numberOfLines={1}>{v.heard} · {v.title}</T>
-                  </View>
-                  <T w="semibold" style={{ fontSize: 14, lineHeight: 19 }} numberOfLines={3}>“{v.quote}”</T>
-                  <View style={{ alignSelf: "flex-start", backgroundColor: colors.ink, borderRadius: 14, paddingVertical: 6, paddingHorizontal: 12 }}>
-                    <T style={{ fontSize: 12, color: colors.white }}>Who is this?</T>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </>
-        )}
-
-        {ready && open.length === 0 && !error && (
-          <View style={{ marginHorizontal: 20, marginTop: 22, borderRadius: 22, borderWidth: 2, borderColor: colors.line, padding: 18 }}>
-            <T w="extrabold" style={{ fontSize: 16 }}>No promises yet</T>
-            <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 6, lineHeight: 19 }}>
-              When your band hears you say “I'll send you…” or “I'll call you…”, it shows up here and your phone buzzes. Or tap the mic to add one.
-            </T>
+        {s.error && (
+          <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: "#FFF1E8", borderRadius: 18, padding: 14 }}>
+            <T w="extrabold" style={{ fontSize: 14 }}>Not connected to your band</T>
+            <T w="medium" style={{ fontSize: 13, color: colors.soft, marginTop: 4, lineHeight: 18 }}>{s.error}</T>
           </View>
         )}
 
-        {rest.length > 0 && <T w="extrabold" style={{ fontSize: 14, marginTop: 22, marginLeft: 20 }}>{featured ? "This week" : "Open promises"}</T>}
-        <View style={{ paddingHorizontal: 16, marginTop: 12, gap: 10 }}>
-          {rest.map((t) => (
-            <Row key={t.id} todo={t} name={person(t.personId)?.name ?? null} onDone={() => setStatus(t.id, "done")} onWho={() => setPicking(t.id)} />
-          ))}
+        <View style={{ height: 380, alignItems: "center", justifyContent: "center" }}>
+          <Centered size={344}>
+            <View style={{ position: "absolute", width: 240, height: 240, borderRadius: 120, backgroundColor: colors.glow }} />
+            <Ring size={344} seconds={160} dashed items={[...outer.map((p) => planet(p, 36)), ...dots(Math.max(0, 3 - outer.length))]} />
+            <Ring size={248} seconds={110} reverse items={middle.map((p) => planet(p, 44))} />
+            <Ring size={148} seconds={70} items={inner.map((p) => planet(p, 52))} />
+            <Pressable accessibilityRole="button" accessibilityLabel="You. Tap to edit your circles" onPress={() => router.push("/circles")}
+              style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center",
+                shadowColor: colors.ink, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 8 } }}>
+              <T w="extrabold" style={{ fontSize: 15, color: colors.white }}>You</T>
+            </Pressable>
+          </Centered>
+          {!s.ready && !s.error && <ActivityIndicator style={{ position: "absolute" }} color={colors.ink} />}
+        </View>
+
+        <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10,
+          shadowColor: colors.ink, shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: -6 }, elevation: 3 }}>
+          <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: colors.handle, alignSelf: "center" }} />
+
+          <Section title={`Due today · ${today.length}`} right={today.length > 1 ? <T style={{ fontSize: 13, color: colors.muted }}>Swipe →</T> : null} />
+          {today.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} snapToInterval={312} decelerationRate="fast" contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}>
+              {today.map((t) => <DueCard key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+            </ScrollView>
+          ) : (
+            <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 20 }}>Nothing due today. Your band is listening for new promises.</T>
+          )}
+
+          {s.unknownVoices.length > 0 && (
+            <>
+              <Section title="Who is this?" />
+              <T w="medium" style={{ fontSize: 12, color: colors.muted, paddingHorizontal: 20, marginTop: -6 }}>Name a voice once and your band recognises it from then on.</T>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 20, paddingTop: 10 }}>
+                {s.unknownVoices.map((v) => (
+                  <Pressable key={`${v.interaction_id}-${v.speaker}`} accessibilityRole="button" accessibilityLabel={`Name the voice that said: ${v.quote}`}
+                    onPress={() => setVoice(v)} style={{ width: 240, backgroundColor: colors.card, borderRadius: 22, padding: 14, gap: 10 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <Avatar name={null} unknown size={34} />
+                      <T w="semibold" style={{ flex: 1, fontSize: 12, color: colors.muted }} numberOfLines={1}>{v.heard} · {v.title}</T>
+                    </View>
+                    <T w="semibold" style={{ fontSize: 14, lineHeight: 19 }} numberOfLines={3}>“{v.quote}”</T>
+                    <View style={{ alignSelf: "flex-start", backgroundColor: colors.ink, borderRadius: 14, paddingVertical: 6, paddingHorizontal: 12 }}>
+                      <T style={{ fontSize: 12, color: colors.white }}>Who is this?</T>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          <Section title={`This week · ${week.filter((t) => t.status === "open").length}`} right={
+            <Pressable accessibilityRole="link" onPress={() => router.replace("/contacts")} hitSlop={8}><T style={{ fontSize: 13, color: colors.muted }}>All contacts</T></Pressable>
+          } />
+          <View style={{ paddingHorizontal: 16, gap: 8 }}>
+            {week.map((t) => <WeekRow key={t.id} todo={t} onWho={() => setPicking(t.id)} />)}
+            {!week.length && <T w="medium" style={{ fontSize: 14, color: colors.muted, paddingHorizontal: 4 }}>No other promises this week.</T>}
+          </View>
         </View>
       </ScrollView>
-      <BottomNav mic />
-      <WhoPicker visible={!!picking} quote={pickingTodo?.quote} onClose={() => setPicking(null)}
-        onPick={(name) => picking && setTodoPerson(picking, { name })} />
-      <WhoPicker visible={!!voice} title="Whose voice is this?" quote={voice?.quote} onClose={() => setVoice(null)}
-        onPick={(name) => voice && nameVoice(voice, name)} />
+      <BottomNav />
+      <WhoPicker visible={!!voice} title="Whose voice is this?" quote={voice?.quote} onClose={() => setVoice(null)} onPick={(n) => voice && s.nameVoice(voice, n)} />
+      <WhoPicker visible={!!picking} quote={pickingTodo?.quote} onClose={() => setPicking(null)} onPick={(n) => picking && s.setTodoPerson(picking, { name: n })} />
     </View>
   );
 }
 
-function FeaturedCard({ todo, name, onWho }: { todo: Todo; name: string | null; onWho: () => void }) {
+function DueCard({ todo, onWho }: { todo: Todo; onWho: () => void }) {
+  const s = useStore();
+  const p = s.person(todo.personId);
   return (
-    <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/todo/[id]", params: { id: todo.id } })}
-      style={{ marginHorizontal: 16, marginTop: 12, borderRadius: 28, borderWidth: 1, borderColor: "#EFEFF2", backgroundColor: colors.white, overflow: "hidden",
-        shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}>
-      <View style={{ height: 168, backgroundColor: "#F9C9C4", alignItems: "center", justifyContent: "center" }}>
-        <RingArt size={150} />
-        <View style={{ position: "absolute", top: 14, left: 14, right: 64 }}><QuoteBubble text={todo.quote} small /></View>
-        <View style={{ position: "absolute", bottom: 14, left: 14, backgroundColor: colors.ink, borderRadius: 14, paddingVertical: 6, paddingHorizontal: 11 }}>
-          <T style={{ fontSize: 11, color: colors.white }}>Heard {todo.heardAt}</T>
+    <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+      style={{ width: 300, borderRadius: 26, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, overflow: "hidden",
+        shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
+      <View style={{ height: 150, backgroundColor: CARD_TONE[todo.type], alignItems: "center", justifyContent: "center" }}>
+        <View style={{ position: "absolute", width: 190, height: 70, borderRadius: 95, borderWidth: 1.5, borderColor: "rgba(17,17,17,0.16)", transform: [{ rotate: "-14deg" }] }} />
+        <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
+          {p ? <T w="extrabold" style={{ fontSize: 24 }}>{p.name.charAt(0)}</T> : <Icon name="question" size={26} stroke={2.4} />}
         </View>
-        <View style={{ position: "absolute", top: 14, right: 14, width: 40, height: 40, borderRadius: 12, backgroundColor: kindTile[todo.kind], alignItems: "center", justifyContent: "center" }}>
-          {todo.kind === "money" ? <T w="extrabold" style={{ fontSize: 20 }}>$</T> : <Icon name={kindIcon[todo.kind]} size={20} />}
+        <View style={{ position: "absolute", top: 40, right: 92, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.satellite, borderWidth: 2, borderColor: colors.white }} />
+        <View style={{ position: "absolute", top: 12, left: 12, right: 70, backgroundColor: colors.white, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 10 }}>
+          <T style={{ fontSize: 12 }} numberOfLines={1}>“{todo.quote}”</T>
+        </View>
+        <View style={{ position: "absolute", bottom: 12, left: 12, backgroundColor: colors.ink, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center" }}>
+          <Icon name={typeIcon[todo.type]} size={11} color={colors.white} stroke={2.6} />
+          <T style={{ fontSize: 11, color: colors.white }}>{todo.type}</T>
         </View>
       </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingTop: 14, paddingBottom: 16 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14 }}>
         <View style={{ flex: 1 }}>
-          <T w="extrabold" style={{ fontSize: 18 }}>{todo.title}</T>
-          {name ? (
-            <T w="medium" style={{ fontSize: 13, color: colors.muted, marginTop: 3 }}>{todo.note ?? `with ${name}`}</T>
+          <T w="extrabold" style={{ fontSize: 17 }} numberOfLines={1}>{todo.title}</T>
+          {p ? (
+            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{todo.note ?? `to ${p.name}`}</T>
           ) : (
-            <WhoPill onPress={onWho} />
+            <Pressable accessibilityRole="button" onPress={onWho} hitSlop={8}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Who is this? Tap to choose</T></Pressable>
           )}
         </View>
         <View style={{ alignItems: "flex-end" }}>
-          <T w="extrabold" style={{ fontSize: 20, letterSpacing: -0.4 }}>{todo.dueLabel}</T>
-          {todo.dueDetail ? <T w="medium" style={{ fontSize: 13, color: colors.muted, marginTop: 3 }}>{todo.dueDetail}</T> : null}
+          <T w="extrabold" style={{ fontSize: 17 }}>{todo.dueLabel}</T>
+          <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{todo.dueDetail ?? "Anytime"}</T>
         </View>
       </View>
     </Pressable>
   );
 }
 
-function Row({ todo, name, onDone, onWho }: { todo: Todo; name: string | null; onDone: () => void; onWho: () => void }) {
+function WeekRow({ todo, onWho }: { todo: Todo; onWho: () => void }) {
+  const s = useStore();
+  const p = s.person(todo.personId);
+  const done = todo.status === "done";
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.card, borderRadius: 22, minHeight: 72, paddingLeft: 14, paddingRight: 16 }}>
-      <Pressable accessibilityRole="checkbox" accessibilityLabel={`Mark ${todo.title} done`} onPress={onDone} hitSlop={8}
-        style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, borderColor: colors.greyRing, backgroundColor: colors.white }} />
-      <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/todo/[id]", params: { id: todo.id } })}
-        style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minHeight: 72, paddingVertical: 10 }}>
-        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: kindTile[todo.kind], alignItems: "center", justifyContent: "center" }}>
-          <Icon name={kindIcon[todo.kind]} size={20} />
-        </View>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingLeft: 12, paddingRight: 14, borderRadius: 22, backgroundColor: colors.card, opacity: done ? 0.55 : 1 }}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`${done ? "Mark not done" : "Mark done"}: ${todo.title}`}
+        onPress={() => s.setStatus(todo.id, done ? "open" : "done")} hitSlop={8}
+        style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, borderColor: done ? colors.ink : colors.greyRing, backgroundColor: done ? colors.ink : colors.white, alignItems: "center", justifyContent: "center" }}>
+        {done && <Icon name="tick" size={14} color={colors.white} stroke={3} />}
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/promise/[id]", params: { id: todo.id } })}
+        style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minHeight: 70, paddingVertical: 8 }}>
+        <Avatar name={p?.name ?? null} unknown={!p} size={38} color={s.personColor(p)} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <T w="extrabold" style={{ fontSize: 15 }} numberOfLines={1}>{todo.title}</T>
-          {name ? (
-            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{name} · {todo.heardLabel}</T>
+          <T w="extrabold" style={{ fontSize: 15, textDecorationLine: done ? "line-through" : "none" }} numberOfLines={1}>{todo.title}</T>
+          {p ? (
+            <T w="medium" style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{[p.circles[0], todo.heardLabel].filter(Boolean).join(" · ")}</T>
           ) : (
-            <WhoPill onPress={onWho} />
+            <Pressable accessibilityRole="button" onPress={onWho} hitSlop={6}><T style={{ fontSize: 12, color: colors.rust, marginTop: 2 }}>Who is this?</T></Pressable>
           )}
         </View>
         <View style={{ backgroundColor: colors.white, borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>

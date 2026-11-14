@@ -6,13 +6,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from "react-native";
 import * as api from "./api";
 import { contactsPermission, findContact, loadContacts, type PhoneContact } from "./contacts";
-import type { Kind, Person, Todo } from "./types";
+import type { Circle, Person, Todo } from "./types";
 
 type Store = {
   ready: boolean;
   error: string | null;
   people: Person[];
   todos: Todo[];
+  circles: Circle[];
+  recs: api.Rec[];
+  stats: api.Snapshot["stats"];
+  band: api.Snapshot["band"];
   unknownVoices: api.UnknownVoice[];
   contacts: PhoneContact[];
   contactsStatus: "granted" | "denied" | "undetermined";
@@ -21,10 +25,16 @@ type Store = {
   person: (id: string | null) => Person | undefined;
   todo: (id: string) => Todo | undefined;
   openFor: (personId: string) => Todo[];
+  circleColor: (name: string) => string | undefined;
+  personColor: (p: Person | undefined) => string | undefined;
   setTodoPerson: (todoId: string, person: { name: string }) => Promise<void>;
   nameVoice: (voice: api.UnknownVoice, name: string) => Promise<void>;
   setStatus: (todoId: string, status: Todo["status"]) => Promise<void>;
-  addTodo: (fields: { title: string; quote: string; kind: Kind; amount: number | null; dueLabel: string; dueDetail: string | null }, personName: string | null) => Promise<void>;
+  changePromise: (todoId: string, change: api.PromiseChange) => Promise<void>;
+  addPromises: (items: api.NewPromise[]) => Promise<void>;
+  createCircle: (name: string, color: string) => Promise<void>;
+  setMembership: (person: string, circle: string, member: boolean) => Promise<void>;
+  pauseBand: (paused: boolean) => Promise<void>;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -51,12 +61,12 @@ export async function askNotifications() {
   }
 }
 
-async function announce(todo: api.ServerTodo) {
+async function announce(todo: Todo) {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: todo.personName ? `New promise to ${todo.personName}` : "New promise: who was it?",
+        title: todo.personName ? `Promise heard · ${todo.personName}` : "Promise heard · who was it?",
         body: `${todo.title} · ${todo.dueLabel}${todo.dueDetail ? ` ${todo.dueDetail}` : ""}\n“${todo.quote}”`,
         data: { todoId: todo.id },
         ...(Platform.OS === "android" ? { channelId: "promises" } : null),
@@ -67,6 +77,9 @@ async function announce(todo: api.ServerTodo) {
     /* permission not given: the vibration still happened */
   }
 }
+
+const EMPTY_STATS = { promisesToday: 0, conversationsToday: 0 };
+const EMPTY_BAND = { running: false, connected: false, recording: false, paused: false };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<api.Snapshot | null>(null);
@@ -124,21 +137,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [readContacts]);
 
   const store = useMemo<Store>(() => {
-    // People: everyone the band has a name for, with phone/email from the phone's contacts.
+    const circles = snap?.circles ?? [];
     const people: Person[] = (snap?.people ?? []).map((p) => {
       const c = findContact(contacts, p.name);
-      return { id: p.id, name: p.name, lastHeard: p.lastHeard, phone: c?.phone, email: c?.email };
+      return { ...p, phone: c?.phone, email: c?.email };
     });
-    const todos: Todo[] = (snap?.todos ?? []).map((t) => ({ ...t, personId: t.personId }));
+    const todos: Todo[] = snap?.todos ?? [];
     const person = (id: string | null) => (id ? people.find((p) => p.id === id) : undefined);
-
+    const circleColor = (name: string) => circles.find((c) => c.name === name)?.color;
     const patchLocal = (fn: (s: api.Snapshot) => api.Snapshot) => setSnap((s) => (s ? fn(s) : s));
+    const thenRefresh = async (p: Promise<unknown>) => {
+      try {
+        await p;
+      } finally {
+        refresh();
+      }
+    };
 
     return {
       ready: snap !== null,
       error,
       people,
       todos,
+      circles,
+      recs: snap?.recs ?? [],
+      stats: snap?.stats ?? EMPTY_STATS,
+      band: snap?.band ?? EMPTY_BAND,
       unknownVoices: snap?.unknownVoices ?? [],
       contacts,
       contactsStatus,
@@ -147,45 +171,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       person,
       todo: (id) => todos.find((t) => t.id === id),
       openFor: (personId) => todos.filter((t) => t.personId === personId && t.status === "open"),
+      circleColor,
+      personColor: (p) => (p?.circles[0] ? circleColor(p.circles[0]) : undefined),
 
-      setTodoPerson: async (todoId, p) => {
+      setTodoPerson: (todoId, p) => {
         const id = slug(p.name);
+        patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, personId: id, personName: p.name } : t)) }));
+        return thenRefresh(api.updatePromise(todoId, { person_name: p.name }));
+      },
+      nameVoice: (voice, name) => {
+        patchLocal((s) => ({ ...s, unknownVoices: s.unknownVoices.filter((v) => !(v.interaction_id === voice.interaction_id && v.speaker === voice.speaker)) }));
+        return thenRefresh(api.nameVoice(voice, name));
+      },
+      setStatus: (todoId, status) => {
+        patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, status } : t)) }));
+        return thenRefresh(api.updatePromise(todoId, { status }));
+      },
+      changePromise: (todoId, change) => {
+        patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, ...(change.type ? { type: change.type } : {}) } : t)) }));
+        return thenRefresh(api.updatePromise(todoId, change));
+      },
+      addPromises: async (items) => {
+        for (const p of items) {
+          const saved = await api.createPromise(p);
+          seen.current?.add(saved.id); // you just added it: no notification for it
+        }
+        await refresh();
+      },
+      createCircle: (name, color) => thenRefresh(api.createCircle(name, color)),
+      setMembership: (personName, circle, member) => {
+        const id = slug(personName);
         patchLocal((s) => ({
           ...s,
-          people: s.people.some((x) => x.id === id) ? s.people : [...s.people, { id, name: p.name, lastHeard: "Heard today", lastAt: new Date().toISOString() }],
-          todos: s.todos.map((t) => (t.id === todoId ? { ...t, personId: id, personName: p.name } : t)),
+          people: s.people.map((p) => (p.id === id ? { ...p, circles: member ? [...new Set([...p.circles, circle])] : p.circles.filter((c) => c !== circle) } : p)),
         }));
-        try {
-          await api.updatePromise(todoId, { person_name: p.name });
-        } finally {
-          refresh();
-        }
+        return thenRefresh(api.setMembership(personName, circle, member));
       },
-
-      nameVoice: async (voice, name) => {
-        patchLocal((s) => ({ ...s, unknownVoices: s.unknownVoices.filter((v) => !(v.interaction_id === voice.interaction_id && v.speaker === voice.speaker)) }));
-        try {
-          await api.nameVoice(voice, name);
-        } finally {
-          refresh();
-        }
-      },
-
-      setStatus: async (todoId, status) => {
-        patchLocal((s) => ({ ...s, todos: s.todos.map((t) => (t.id === todoId ? { ...t, status } : t)) }));
-        try {
-          await api.updatePromise(todoId, { status });
-        } finally {
-          refresh();
-        }
-      },
-
-      addTodo: async (f, personName) => {
-        const saved = (await api.createPromise({
-          title: f.title, quote: f.quote, kind: f.kind, amount: f.amount, due_label: f.dueLabel, due_detail: f.dueDetail, person_name: personName,
-        })) as { id: string };
-        seen.current?.add(saved.id); // you just added it: no notification for it
-        await refresh();
+      pauseBand: (paused) => {
+        patchLocal((s) => ({ ...s, band: { ...s.band, paused } }));
+        return thenRefresh(api.pauseBand(paused));
       },
     };
   }, [snap, error, contacts, contactsStatus, askContacts, refresh]);
