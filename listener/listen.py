@@ -206,6 +206,7 @@ class Recorder:
         self.tracker = None
         self.done_upto = 0                       # words before this index are already saved
         self.last_saved_at = None
+        self.problem = None                      # why words aren't coming (e.g. speech key rejected)
 
     def open(self):
         from vexo_open.audio import PcmDecoder
@@ -283,7 +284,8 @@ class Recorder:
                  "voices": {str(k): v for k, v in snap.items()},
                  "started_at": None, "turns": [], "interim": None,
                  "last_saved_at": self.last_saved_at, "silence_gap": self.gap,
-                 "level": round(min(1.0, getattr(self, "level", 0) / 4000), 2) if self.ears else None}
+                 "level": round(min(1.0, getattr(self, "level", 0) / 4000), 2) if self.ears else None,
+                 "problem": self.problem}
         if self.ears:
             pending = [dict(w) for w in self.ears.words[self.done_upto:]]
             for w in pending:
@@ -360,6 +362,33 @@ AUDIO_STALL = 20     # the band sends 50 sound packets a second, even in silence
 SPEECH_STALL = 20    # Deepgram answers every few seconds, even in silence: 20 s of nothing = a dead link
 
 
+SPEECH_RETRY = 30    # seconds between tries when the speech service refuses (bad key, no credit)
+
+
+def open_speech(rec, band):
+    """Open Deepgram on the band's sound. If it refuses (a rejected key, no credit, no internet),
+    keep the band connected, say why on the Live page and in the app, and try again every
+    SPEECH_RETRY seconds, instead of dropping and reconnecting the band over and over."""
+    while True:
+        try:
+            rec.open()
+            if rec.problem:
+                log("The speech service is working again.")
+            rec.problem = None
+            return
+        except Exception as error:
+            if not band.connected:
+                raise
+            msg = getattr(error, "message", None) or str(error)
+            if rec.problem != msg:
+                log("Speech service unavailable: %s The band stays connected; trying again every %d s." % (msg, SPEECH_RETRY))
+            rec.problem = msg
+            until = time.monotonic() + SPEECH_RETRY
+            while time.monotonic() < until and band.connected:
+                rec.live(connected=True)
+                time.sleep(0.5)
+
+
 class BandSilent(Exception):
     """The band is 'connected' but has stopped sending sound."""
 
@@ -402,7 +431,7 @@ def run_always(transport, source, gap, longest, stop_after=None):
         band.on("double-tap", lambda e: tapped.set())   # a single tap happens by accident when you move
         rec = Recorder(band, source, gap, longest)
         try:
-            rec.open()
+            open_speech(rec, band)
             band.configure(audio=True, events=True)          # solid blue: the microphone is on
             paused = False
             while band.connected:
@@ -429,13 +458,13 @@ def run_always(transport, source, gap, longest, stop_after=None):
                 if rec.ears.closed:                          # Deepgram hung up: open a new stream
                     log("The speech service disconnected; reconnecting (nothing said so far is lost).")
                     rec.close()
-                    rec.open()
+                    open_speech(rec, band)
                 elif time.monotonic() - rec.ears.heard_from > SPEECH_STALL:
                     # Sound goes out but nothing comes back (e.g. the network changed under it):
                     # the connection is dead without having said so. Open a fresh one.
                     log("No answer from the speech service for %d s; reconnecting it (the band stays connected)." % SPEECH_STALL)
                     rec.close()
-                    rec.open()
+                    open_speech(rec, band)
                 rec.check(tapped.is_set())
                 if tapped.is_set():
                     tapped.clear()

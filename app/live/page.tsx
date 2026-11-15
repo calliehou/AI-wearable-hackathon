@@ -18,6 +18,7 @@ type Live = {
   silence_gap?: number;
   band?: number;
   level?: number | null;   // how loud the band hears things, 0-1
+  problem?: string | null; // why no words are coming (e.g. the speech service rejected its key)
 };
 
 // One colour per voice; the wearer always gets the accent.
@@ -93,6 +94,8 @@ export default function LivePage() {
     ? { label: "Checking the band…", colour: "var(--muted)" }
     : stale
     ? { label: "Listener not running", colour: "var(--muted)" }
+    : live!.connected && live!.problem
+      ? { label: "Band connected · not transcribing", colour: "#c27c0e" }
     : live!.recording
       ? { label: "Recording", colour: "#d9534f" }
       : { label: "Band disconnected", colour: "#c27c0e" };
@@ -210,7 +213,13 @@ export default function LivePage() {
           </div>
         )}
 
-        {!stale && !loading && !live?.turns.length && !live?.interim && (
+        {!stale && !loading && live?.problem && (
+          <p className="mt-3 rounded-lg p-3 text-sm" style={{ background: "color-mix(in srgb, #c27c0e 14%, transparent)" }}>
+            <b>No words are coming through.</b> {live.problem} The band stays connected and the listener tries again
+            every 30 s.
+          </p>
+        )}
+        {!stale && !loading && !live?.problem && !live?.turns.length && !live?.interim && (
           <p className="text-muted">
             Listening… Words appear here as people speak. After {live?.silence_gap ?? 60} s of silence the conversation
             is saved and a new one starts.
