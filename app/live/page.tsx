@@ -17,6 +17,7 @@ type Live = {
   last_saved_at?: number | null;
   silence_gap?: number;
   band?: number;
+  level?: number | null;   // how loud the band hears things, 0-1
 };
 
 // One colour per voice; the wearer always gets the accent.
@@ -114,6 +115,20 @@ export default function LivePage() {
         <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: status.colour }} aria-hidden />
         <span>{status.label}</span>
         {!stale && !loading && <span className="text-muted">· band {live?.band}</span>}
+        {!stale && !loading && live?.recording && typeof live.level === "number" && (
+          <span className="ml-2 inline-flex items-center gap-2 text-muted">
+            <span
+              className="relative inline-block h-2 w-28 overflow-hidden rounded-full"
+              style={{ background: "color-mix(in srgb, currentColor 18%, transparent)" }}
+              role="meter" aria-label="How loud the band hears" aria-valuemin={0} aria-valuemax={100}
+              aria-valuenow={Math.round(live.level * 100)}
+            >
+              <span className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-200"
+                style={{ width: `${Math.round(live.level * 100)}%`, background: live.level < 0.08 ? "#c27c0e" : "#3a9a5b" }} />
+            </span>
+            {live.level < 0.08 ? "very quiet: speak closer to the band" : "hearing sound"}
+          </span>
+        )}
       </div>
 
       {speakers.length > 0 && (

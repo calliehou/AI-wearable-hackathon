@@ -17,6 +17,7 @@ person to the next). If the cable, the band or the internet drops, it reconnects
 Options: --gap SECONDS (silence that ends a conversation), --max SECONDS (longest one).
 """
 import argparse
+import audioop                                   # loudness of the band's sound (stdlib in 3.9)
 import json
 import re
 import sys
@@ -224,6 +225,9 @@ class Recorder:
         # Decode without the packet counter so lost packets are not filled in: the sound then
         # keeps the same clock as the packets Deepgram received.
         pcm = self.decoder.feed(packet.opus if hasattr(packet, "opus") else packet)
+        if pcm:
+            # Peak loudness, decaying, for the Live page's meter (0 = silence, ~3000 = normal speech).
+            self.level = max(audioop.rms(bytes(pcm), 2), int(getattr(self, "level", 0) * 0.92))
         with self.pcm_lock:
             self.pcm.extend(pcm)
 
@@ -278,7 +282,8 @@ class Recorder:
                  "recording": bool(connected and self.ears), "wearer": config.WEARER,
                  "voices": {str(k): v for k, v in snap.items()},
                  "started_at": None, "turns": [], "interim": None,
-                 "last_saved_at": self.last_saved_at, "silence_gap": self.gap}
+                 "last_saved_at": self.last_saved_at, "silence_gap": self.gap,
+                 "level": round(min(1.0, getattr(self, "level", 0) / 4000), 2) if self.ears else None}
         if self.ears:
             pending = [dict(w) for w in self.ears.words[self.done_upto:]]
             for w in pending:
