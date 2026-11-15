@@ -57,6 +57,8 @@ speak, or "Type it instead") and use Ask Peri, gift ideas, circles and the rest.
    ```
 2. Set your band number in `listener/config.py` (`BAND = ...`) and your name (`WEARER = ...`).
 3. Run the listener in a third terminal, in the repo root:
+   - **Recommended:** `listener/run.sh` (Bluetooth; `listener/run.sh --usb` for the cable). It restarts the
+     listener by itself if macOS's Bluetooth layer ever crashes it. Ctrl+C to stop.
    - **Bluetooth (no cable):** `.venv/bin/python listener/listen.py --ble`, then **double-tap the band**
      (its light blinks blue for 60 s while it can be found). Keep the band within about one room of the Mac.
    - **USB cable:** `.venv/bin/python listener/listen.py` (use a cable that carries data, not only power).
