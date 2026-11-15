@@ -122,8 +122,23 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None, loude
                 log("Learned more of %s's voice (%.2f match)." % (p["name"], chk["score"]))
         for pr in store.save_promises(item, reading.get("promises", [])):
             log("New promise: %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
+        save_payments(item, reading.get("payments", []))
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
         log("Saved: %s  [%s]" % (item["title"], names))
+
+
+def save_payments(item, payments):
+    """Venmo details said out loud: fill in that person's Venmo page (unless one was typed)."""
+    names = {p["speaker"]: p for p in item["people"]}
+    for pay in payments:
+        if pay["confidence"] < 0.6 or not pay["handle"].strip():
+            continue
+        who = names.get(pay["speaker"]) if pay["speaker"] is not None else None
+        name = pay["name"] or (who or {}).get("name")
+        if not name or name.lower() == config.WEARER.lower() or (who or {}).get("is_wearer"):
+            continue                                       # unknown person, or the wearer's own
+        if store.save_payee(name, pay["handle"].strip(), pay["kind"], pay["quote"]):
+            log("Heard %s's Venmo (%s): %s" % (name, pay["kind"], pay["handle"]))
 
 
 def quick_save(lines):

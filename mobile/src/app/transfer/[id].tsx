@@ -57,8 +57,12 @@ export default function Transfer() {
   const [split, setSplit] = useState(false);
   const method: PayMethod = "venmo";
   const saved = p?.payee.venmo ?? "";
-  const [user, setUser] = useState(saved);
-  const [by, setBy] = useState<By>(saved ? kindOf(saved) : "username");
+  // Until you type or pick, show what's saved, including details that arrive while you look.
+  const [typed, setUser] = useState<string | null>(null);
+  const user = typed ?? saved;
+  const heard = p?.payee.venmoSource === "heard" ? p.payee.venmoHeard ?? "" : null;
+  const [chosen, setBy] = useState<By | null>(null);
+  const by: By = chosen ?? p?.payee.venmoKind ?? (saved ? kindOf(saved) : "username");
   const contact = p ? findContact(s.contacts, p.name) : undefined;
   const [opened, setOpened] = useState(false);
   const [askSent, setAskSent] = useState(false);
@@ -81,7 +85,8 @@ export default function Transfer() {
 
   async function pay() {
     if (!p || !ok || !amount) return;
-    if (handle !== p.payee[method] || p.payee.method !== method) await s.setPayee(p.name, { [method]: handle, method });
+    // Paying with it confirms it (also one heard in conversation): saved as yours.
+    if (handle !== p.payee[method] || p.payee.method !== method || heard !== null) await s.setPayee(p.name, { [method]: handle, method, venmoKind: by });
     const [app, web] = venmoLinks(handle, amount, note);
     try {
       await Linking.openURL(app);
@@ -146,8 +151,16 @@ export default function Transfer() {
             autoCapitalize="none" autoCorrect={false} keyboardType={way.keyboard} accessibilityLabel={way.hint}
             textContentType={by === "phone" ? "telephoneNumber" : by === "email" ? "emailAddress" : "none"}
             style={{ flex: 1, height: 48, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }} />
-          {saved && recipient(kindOf(saved), saved) === handle ? <Icon name="tick" size={16} color={colors.green} stroke={3} /> : null}
+          {saved && heard === null && recipient(kindOf(saved), saved) === handle ? <Icon name="tick" size={16} color={colors.green} stroke={3} /> : null}
         </View>
+        {heard !== null && saved && recipient(by, saved) === handle ? (
+          <View style={{ marginTop: 8, flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: "#FFF1E8", borderRadius: 14, padding: 10 }}>
+            <Icon name="wave" size={16} color={colors.rust} stroke={2.4} />
+            <T w="semibold" style={{ flex: 1, fontSize: 12, lineHeight: 17, color: colors.rust }}>
+              Heard in conversation{heard ? `: “${heard}”` : ""}. Check it&apos;s right before you pay.
+            </T>
+          </View>
+        ) : null}
         {fromContacts && recipient(by, fromContacts) !== handle ? (
           <Pressable accessibilityRole="button" onPress={() => setUser(fromContacts)}
             style={{ alignSelf: "flex-start", marginTop: 8, minHeight: 36, borderRadius: 18, paddingHorizontal: 12, backgroundColor: colors.card, flexDirection: "row", alignItems: "center", gap: 6 }}>

@@ -10,6 +10,7 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => null);
   const str = (v: unknown) => v === undefined || typeof v === "string";
   if (!b || typeof b.person !== "string" || !str(b.venmo) || !str(b.cashapp) || !str(b.paypal)
+      || (b.venmoKind !== undefined && !["username", "phone", "email"].includes(b.venmoKind))
       || (b.method !== undefined && !["venmo", "cashapp", "paypal"].includes(b.method))) {
     return NextResponse.json({ error: "send { person, venmo?, cashapp?, paypal?, method? }" }, { status: 400 });
   }

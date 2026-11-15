@@ -149,3 +149,35 @@ def save_promises(item, promises, min_confidence=0.6):
 
 def now():
     return datetime.now(timezone.utc)
+
+
+PAYEES_FILE = config.ROOT / "data" / "payees.json"   # how to pay each person (gitignored)
+
+
+def person_id(name):
+    """Same id as the Mac server's personId()."""
+    import re
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "person"
+
+
+def save_payee(name, handle, kind, quote):
+    """Remember a Venmo handle heard in conversation. Never replaces one typed in the app.
+    Returns True if it was saved."""
+    try:
+        all_ = json.loads(PAYEES_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        all_ = {}
+    pid = person_id(name)
+    now_ = dict(all_.get(pid) or {})
+    if now_.get("venmo") and now_.get("venmoSource") != "heard":
+        return False                                     # the wearer entered or confirmed one
+    if now_.get("venmo") == handle:
+        return False
+    now_.update({"venmo": handle, "method": "venmo", "venmoSource": "heard", "venmoKind": kind, "venmoHeard": quote[:140]})
+    all_[pid] = now_
+    PAYEES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = PAYEES_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(all_, indent=2), encoding="utf-8")
+    tmp.replace(PAYEES_FILE)
+    return True
+

@@ -22,7 +22,11 @@ export type Person = {
 };
 
 // Payment usernames for a person; payments are approved in that app, never inside Peri.
-export type Payee = { venmo?: string; cashapp?: string; paypal?: string; method?: PayMethod };
+export type Payee = {
+  venmo?: string; cashapp?: string; paypal?: string; method?: PayMethod;
+  // "heard": the listener caught it in conversation ("my Venmo is…"); "you": typed or confirmed.
+  venmoSource?: "you" | "heard"; venmoKind?: "username" | "phone" | "email"; venmoHeard?: string;
+};
 export type PayMethod = "venmo" | "cashapp" | "paypal";
 
 export type Todo = {

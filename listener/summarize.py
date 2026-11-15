@@ -48,8 +48,24 @@ SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "payments": {                        # Venmo details someone said out loud
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "speaker": {"type": ["integer", "null"]},
+                    "name": {"type": ["string", "null"]},
+                    "handle": {"type": "string"},
+                    "kind": {"type": "string", "enum": ["username", "phone", "email"]},
+                    "quote": {"type": "string"},
+                    "confidence": {"type": "number"},
+                },
+                "required": ["speaker", "name", "handle", "kind", "quote", "confidence"],
+                "additionalProperties": False,
+            },
+        },
     },
-    "required": ["title", "summary", "people", "topics", "follow_ups", "promises"],
+    "required": ["title", "summary", "people", "topics", "follow_ups", "promises", "payments"],
     "additionalProperties": False,
 }
 
