@@ -2,9 +2,11 @@
 e.g. no API credits). Fills in the title, summary and people, and saves their promises and
 Venmo details like the listener would. Safe to run while the listener is recording.
 
-    .venv/bin/python listener/reread.py
+    .venv/bin/python listener/reread.py            # all of them, oldest first
+    .venv/bin/python listener/reread.py quinn      # only conversations that mention "quinn"
 """
 import json
+import sys
 
 import config
 import store
@@ -24,7 +26,11 @@ def update(item_id, fields):
 
 
 def main():
+    only = sys.argv[1:]                                # optional: conversation ids, or words they contain
     unread = [it for it in reversed(store.load()) if it.get("title") == "Unread conversation" and it.get("turns")]
+    if only:
+        unread = [it for it in unread if it["id"] in only
+                  or any(w.lower() in " ".join(t["text"] for t in it["turns"]).lower() for w in only)]
     print("%d unread conversation(s)." % len(unread))
     done = 0
     for it in unread:                                   # oldest first, so context builds up in order
