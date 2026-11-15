@@ -42,3 +42,7 @@ data/control.json
 data/circles.json
 data/payees.json
 data/orbits.json
+
+# Local-only data and tool output
+data/raw/
+.playwright-mcp/
