@@ -19,7 +19,11 @@ export type Person = {
   quietFor: string | null;
   circles: string[];
   payee: Payee;
+  details?: Details;     // phone, email, website: heard in conversation or typed in Peri
 };
+
+export type DetailKind = "phone" | "email" | "website";
+export type Details = Partial<Record<DetailKind, { value: string; source: "heard" | "you"; quote?: string }>>;
 
 // Payment usernames for a person; payments are approved in that app, never inside Peri.
 export type Payee = {

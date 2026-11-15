@@ -64,8 +64,24 @@ SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "details": {                         # phone numbers, emails, websites someone shared
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "speaker": {"type": ["integer", "null"]},
+                    "name": {"type": ["string", "null"]},
+                    "kind": {"type": "string", "enum": ["phone", "email", "website"]},
+                    "value": {"type": "string"},
+                    "quote": {"type": "string"},
+                    "confidence": {"type": "number"},
+                },
+                "required": ["speaker", "name", "kind", "value", "quote", "confidence"],
+                "additionalProperties": False,
+            },
+        },
     },
-    "required": ["title", "summary", "people", "topics", "follow_ups", "promises", "payments"],
+    "required": ["title", "summary", "people", "topics", "follow_ups", "promises", "payments", "details"],
     "additionalProperties": False,
 }
 

@@ -89,6 +89,8 @@ export const setPayee = (person: string, change: import("./types").Payee) => cal
 
 export const renamePerson = (from: string, to: string) => call<{ id: string; name: string }>("/api/peri/people/rename", json("POST", { from, to }));
 
+export const setDetails = (person: string, change: Partial<Record<import("./types").DetailKind, string | null>>) =>
+  call("/api/peri/people/details", json("POST", { person, ...change }));
 export const setOrbit = (person: string, ring: 1 | 2 | 3 | null) => call("/api/peri/people/orbit", json("POST", { person, ring }));
 
 export const pauseBand = (paused: boolean) => call("/api/peri/band", json("POST", { paused }));

@@ -181,3 +181,27 @@ def save_payee(name, handle, kind, quote):
     tmp.replace(PAYEES_FILE)
     return True
 
+
+DETAILS_FILE = config.ROOT / "data" / "details.json"   # phone, email, website per person (gitignored)
+
+
+def save_detail(name, kind, value, quote):
+    """Remember a phone number, email or website heard in conversation. Never replaces one
+    typed in the app. Returns True if it was saved."""
+    try:
+        all_ = json.loads(DETAILS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        all_ = {}
+    pid = person_id(name)
+    mine = dict(all_.get(pid) or {})
+    have = mine.get(kind) or {}
+    if have.get("source") == "you" or have.get("value") == value:
+        return False
+    mine[kind] = {"value": value[:120], "source": "heard", "quote": quote[:140]}
+    all_[pid] = mine
+    DETAILS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = DETAILS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(all_, indent=2), encoding="utf-8")
+    tmp.replace(DETAILS_FILE)
+    return True
+

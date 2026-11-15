@@ -11,7 +11,7 @@ import sys
 import config
 import store
 import summarize
-from listen import save_payments
+from listen import save_details, save_payments
 
 
 def update(item_id, fields):
@@ -53,6 +53,7 @@ def main():
         it.update(fields)
         new = store.save_promises(it, reading.get("promises", []))
         save_payments(it, reading.get("payments", []))
+        save_details(it, reading.get("details", []))
         done += 1
         print("Read: %s%s" % (reading["title"], "".join("\n  New promise: %s (to %s)" % (p["title"], p["person_name"] or "someone")
                                                       for p in new)))

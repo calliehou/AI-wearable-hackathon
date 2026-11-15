@@ -4,12 +4,13 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-au
 import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, typeIcon } from "../../components/Icon";
 import { Avatar, Header, Pill, T } from "../../components/ui";
 import { WhoPicker } from "../../components/WhoPicker";
 import { RenameSheet } from "../../components/RenameSheet";
+import { ContactCard } from "../../components/ContactCard";
 import { CirclePicker } from "../../components/CirclePicker";
 import { OrbitPicker } from "../../components/OrbitPicker";
 import { MergeSheet } from "../../components/MergeSheet";
@@ -191,12 +192,7 @@ export default function PersonScreen() {
             </View>
           ) : null}
         </View>
-        {!!(p.phone || p.email) && (
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
-            {p.phone ? <Pill label={`Call ${first}`} onPress={() => Linking.openURL(`tel:${p.phone}`)} /> : null}
-            {p.email ? <Pill label="Email" onPress={() => Linking.openURL(`mailto:${p.email}`)} /> : null}
-          </View>
-        )}
+        <ContactCard person={p} onSave={(change) => s.setDetails(p.name, change)} />
         <Pressable accessibilityRole="button" onPress={() => setMerging(true)}
           style={{ marginTop: 18, flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 18, borderWidth: 1.5, borderColor: colors.line }}>
           <Icon name="contacts" size={18} color={colors.soft} />

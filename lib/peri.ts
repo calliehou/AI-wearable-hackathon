@@ -11,6 +11,7 @@ const CIRCLES = path.join(DATA, "circles.json");
 const LIVE = path.join(DATA, "live.json");
 const CONTROL = path.join(DATA, "control.json");
 const PAYEES = path.join(DATA, "payees.json");
+const DETAILS = path.join(DATA, "details.json"); // { personId: { phone, email, website } } heard or typed
 const ORBITS = path.join(DATA, "orbits.json"); // { personId: 1 | 2 | 3 } chosen in the app
 
 export type Kind = "money" | "gift" | "task" | "plan" | "send" | "call" | "bring" | "meet" | "other";
@@ -181,17 +182,42 @@ export async function setPayee(person: string, change: Payee) {
   return next;
 }
 
+// ---- contact details (phone, email, website): heard in conversation by the listener
+// ("my number is…", marked "heard") or typed in the app ("you"). Stay on this Mac, gitignored.
+
+export type DetailKind = "phone" | "email" | "website";
+export type Detail = { value: string; source: "heard" | "you"; quote?: string };
+export type Details = Partial<Record<DetailKind, Detail>>;
+export const readDetails = () => readJson<Record<string, Details>>(DETAILS, {});
+
+export async function setDetails(person: string, change: Partial<Record<DetailKind, string | null>>) {
+  const all = await readDetails();
+  const id = personId(person);
+  const next: Details = { ...all[id] };
+  for (const k of ["phone", "email", "website"] as const) {
+    const v = change[k];
+    if (v === undefined) continue;
+    const clean = (v ?? "").trim().slice(0, 120);
+    if (clean) next[k] = { value: clean, source: "you" };
+    else delete next[k];
+  }
+  all[id] = next;
+  await writeJson(DETAILS, all);
+  return next;
+}
+
 // ---- the snapshot the app polls
 
 export type UnknownVoice = { interaction_id: string; speaker: number; quote: string; title: string; heard: string; seconds: number };
 
 export async function snapshot() {
-  const [stored, interactions, circleFile, live, control, payees, orbits] = await Promise.all([
+  const [stored, interactions, circleFile, live, control, payees, orbits, details] = await Promise.all([
     readPromises(), realInteractions(), readCircles(),
     readJson<{ updated_at?: number; connected?: boolean; recording?: boolean } | null>(LIVE, null),
     readJson<{ paused?: boolean }>(CONTROL, {}),
     readPayees(),
     readJson<Record<string, 1 | 2 | 3>>(ORBITS, {}),
+    readDetails(),
   ]);
   type P = { id: string; name: string; lastAt: string; talks30: number; talks14: number; moments: number };
   const people = new Map<string, P>();
@@ -276,6 +302,7 @@ export async function snapshot() {
       quietFor: p.moments ? short(p.lastAt) : null,
       circles: circleFile.members[p.id] ?? [],
       payee: payees[p.id] ?? {},
+      details: details[p.id] ?? {},
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -454,6 +481,13 @@ export async function renamePersonEverywhere(from: string, to: string) {
   }
 
   const orbits = await readJson<Record<string, 1 | 2 | 3>>(ORBITS, {});
+  const details = await readDetails();
+  if (details[oldId] && newId !== oldId) {
+    // Keep both people's details; the kept person's own win where both have one.
+    details[newId] = { ...details[oldId], ...details[newId] };
+    delete details[oldId];
+    await writeJson(DETAILS, details);
+  }
   if (orbits[oldId] !== undefined && newId !== oldId) {
     orbits[newId] = orbits[oldId];
     delete orbits[oldId];

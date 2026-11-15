@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from "react-native";
 import * as api from "./api";
 import { contactsPermission, findContact, loadContacts, type PhoneContact } from "./contacts";
-import type { Circle, Payee, Person, Todo } from "./types";
+import type { Circle, DetailKind, Payee, Person, Todo } from "./types";
 
 type Store = {
   ready: boolean;
@@ -40,6 +40,7 @@ type Store = {
   setPayee: (person: string, change: Payee) => Promise<void>;
   renamePerson: (from: string, to: string) => Promise<string>; // returns the new person id
   setOrbit: (person: string, ring: 1 | 2 | 3 | null) => Promise<void>;
+  setDetails: (person: string, change: Partial<Record<DetailKind, string | null>>) => Promise<void>;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -232,6 +233,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await refresh();
         return r.id;
       },
+      setDetails: (personName, change) => thenRefresh(api.setDetails(personName, change)),
       setOrbit: (personName, ring) => {
         const id = slug(personName);
         if (ring !== null) patchLocal((s) => ({ ...s, people: s.people.map((p) => (p.id === id ? { ...p, ring, ringChosen: true } : p)) }));

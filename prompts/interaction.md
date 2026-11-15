@@ -73,5 +73,16 @@ Your job:
    Only Venmo (or "pay me at…" while talking about paying back). Most conversations have none:
    then return an empty list.
 
+`details`: a phone number, email or website someone shares so the wearer can reach them or
+   look them up ("my number is 415 555 0100", "it's jo at gmail dot com", "my website is
+   kolmphi.com"). One entry per item; not Venmo (that goes in `payments`):
+   - `speaker` / `name`: whose it is, as for `payments`. Never the wearer's own.
+   - `kind`: phone, email or website. `value`: as it should be typed: phone as digits ("+1" kept
+     if said); email in lower case ("at" -> "@", "dot" -> "."); website as a bare domain or URL
+     ("esketit dot us" -> "esketit.us"), joining spelled-out letters.
+   - `quote`: the words where it was said. `confidence`: 0 to 1, how sure you are of the exact
+     value and whose it is (speech-to-text often garbles names and digits: be honest).
+   Most conversations have none: then return an empty list.
+
 Keep everything factual and short. Do not judge people or guess their feelings. Refer to
 people by name, or with "they"; never guess "he" or "she" from a name or a voice.

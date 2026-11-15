@@ -124,6 +124,7 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None, loude
         for pr in store.save_promises(item, reading.get("promises", [])):
             log("New promise: %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
         save_payments(item, reading.get("payments", []))
+        save_details(item, reading.get("details", []))
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
         log("Saved: %s  [%s]" % (item["title"], names))
 
@@ -140,6 +141,20 @@ def save_payments(item, payments):
             continue                                       # unknown person, or the wearer's own
         if store.save_payee(name, pay["handle"].strip(), pay["kind"], pay["quote"]):
             log("Heard %s's Venmo (%s): %s" % (name, pay["kind"], pay["handle"]))
+
+
+def save_details(item, details):
+    """Phone numbers, emails and websites people shared: saved on their contact in Peri."""
+    names = {p["speaker"]: p for p in item["people"]}
+    for d in details:
+        if d["confidence"] < 0.5 or not d["value"].strip():
+            continue
+        who = names.get(d["speaker"]) if d["speaker"] is not None else None
+        name = d["name"] or (who or {}).get("name")
+        if not name or name.lower() == config.WEARER.lower() or (who or {}).get("is_wearer"):
+            continue
+        if store.save_detail(name, d["kind"], d["value"].strip(), d["quote"]):
+            log("Heard %s's %s: %s" % (name, d["kind"], d["value"]))
 
 
 def quick_save(lines):
