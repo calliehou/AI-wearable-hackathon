@@ -131,7 +131,9 @@ def read_conversation(turns, known_people, voices=None, recent=""):
     except anthropic.RateLimitError:
         raise RuntimeError("Claude is rate limiting this key (status 429): wait a little and try again.") from None
     except anthropic.APIStatusError as e:
-        raise RuntimeError("Claude API error (status %d)." % e.status_code) from None
+        # Say why (e.g. "Your credit balance is too low…"), not just the number.
+        detail = ((e.body or {}).get("error") or {}).get("message") if isinstance(e.body, dict) else None
+        raise RuntimeError("Claude API error (status %d)%s" % (e.status_code, ": " + detail if detail else ".")) from None
     except anthropic.APIConnectionError:
         raise RuntimeError("Could not reach the Claude API: check the internet connection.") from None
 
