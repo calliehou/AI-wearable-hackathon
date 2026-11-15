@@ -24,7 +24,10 @@ node_modules
 vexo-open-kit/
 .venv/
 
-# Recorded conversations (real people): never committed
+# Recorded conversations, voices, payees (real people): never committed. Everything in data/
+# is ignored, so stray copies ("live 2.json") can't slip in; only the sample is shared.
+data/*
+!data/interactions.sample.json
 data/interactions.json
 data/*.tmp
 data/live.json
