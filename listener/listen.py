@@ -352,6 +352,9 @@ def connect(transport):
 AUDIO_STALL = 20     # the band sends 50 sound packets a second, even in silence: 20 s of none = a dropped link
 
 
+SPEECH_STALL = 20    # Deepgram answers every few seconds, even in silence: 20 s of nothing = a dead link
+
+
 class BandSilent(Exception):
     """The band is 'connected' but has stopped sending sound."""
 
@@ -420,6 +423,12 @@ def run_always(transport, source, gap, longest, stop_after=None):
                     raise BandSilent()
                 if rec.ears.closed:                          # Deepgram hung up: open a new stream
                     log("The speech service disconnected; reconnecting (nothing said so far is lost).")
+                    rec.close()
+                    rec.open()
+                elif time.monotonic() - rec.ears.heard_from > SPEECH_STALL:
+                    # Sound goes out but nothing comes back (e.g. the network changed under it):
+                    # the connection is dead without having said so. Open a fresh one.
+                    log("No answer from the speech service for %d s; reconnecting it (the band stays connected)." % SPEECH_STALL)
                     rec.close()
                     rec.open()
                 rec.check(tapped.is_set())
