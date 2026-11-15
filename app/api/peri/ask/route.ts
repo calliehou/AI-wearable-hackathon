@@ -2,6 +2,7 @@
 // ("Make Leo's due Thursday"). Changes are applied here and listed in the answer.
 import { NextResponse } from "next/server";
 import { askJson, errorResponse } from "@/lib/claude";
+import { IDEA_SCHEMA, ideaLink, type Idea } from "@/lib/ideas";
 import { overview, updatePromise } from "@/lib/peri";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ const SCHEMA = {
   type: "object",
   properties: {
     reply: { type: "string" },
+    ideas: { type: "array", items: IDEA_SCHEMA },
     changes: {
       type: "array",
       items: {
@@ -27,7 +29,7 @@ const SCHEMA = {
       },
     },
   },
-  required: ["reply", "changes"],
+  required: ["reply", "ideas", "changes"],
   additionalProperties: false,
 };
 
@@ -37,7 +39,9 @@ const SYSTEM = `You are Peri, a warm, brief assistant that helps the user keep t
 - Never invent people, promises or facts. If unsure which promise they mean, ask.
 - Due labels look like "Today", "Tonight", "Tmrw", "Thu", "Mon".
 - The band cannot vibrate; reminders arrive as phone notifications.
-- When the user asks for ideas or recommendations for a promise, give 3-5 specific, concrete suggestions that fit what was promised and the person it's for: e.g. sandwich recipes for "make a sandwich", places, food and activities for "plan a trip to Hawaii", soccer gifts with rough prices for "get a soccer gift". Use what the conversations say about the person (age, tastes, plans). Start with one short line, then one line per idea starting with "• ": the idea's name, then a few words on why or how. No headings, no markdown bold. Make no changes for an ideas request.`;
+- Always offer options. Whenever the user asks for ideas, recommendations or help doing something, or asks about a promise they could act on, put 2-4 concrete options in "ideas" (for an ideas request about a promise, always 3). They must fit what was promised and the person it's for: sandwich recipes for "make a sandwich"; places, food and activities for "plan a trip to Hawaii"; soccer gifts for "get a soccer gift". Use what the conversations say about the person (age, tastes, plans) and say so in "why".
+- Each idea: "title" a short name (at most 5 words); "why" at most 9 words on why it fits ("She mentioned the new place twice"); "price" a rough price like "$45" or "$20-30" when it costs money, else null; "kind" product, place, recipe, activity or other; "search" the words to find it online ("Adidas kids soccer ball size 4").
+- With ideas, "reply" is one short sentence that introduces them; don't repeat the ideas in the reply. With no ideas, leave "ideas" empty. Make no changes for an ideas request.`;
 
 type Change = {
   promise_id: string; due_label: string | null; due_detail: string | null;
@@ -60,7 +64,7 @@ export async function POST(req: Request) {
   ].join("\n\n");
   const convo = history.map((h) => `${h.role === "user" ? "User" : "Peri"}: ${h.text}`).join("\n");
   try {
-    const out = await askJson<{ reply: string; changes: Change[] }>({
+    const out = await askJson<{ reply: string; ideas: Omit<Idea, "link" | "image" | "source">[]; changes: Change[] }>({
       system: SYSTEM,
       effort: "medium",
       user: `${ctx}\n\n${convo ? convo + "\n" : ""}User: ${b.message.trim()}`,
@@ -77,7 +81,9 @@ export async function POST(req: Request) {
       });
       if (done) applied.push({ id: done.id, title: done.title, due_label: done.due_label, status: done.status });
     }
-    return NextResponse.json({ reply: out.reply, applied });
+    // Each idea gets a search link at once; the app then asks /api/peri/ideas for real pages and photos.
+    const ideas: Idea[] = out.ideas.slice(0, 4).map((x) => ({ ...x, link: ideaLink(x.kind, x.search), image: null, source: null }));
+    return NextResponse.json({ reply: out.reply, ideas, applied });
   } catch (e) {
     const r = errorResponse(e);
     return NextResponse.json({ error: r.error }, { status: r.status });

@@ -105,7 +105,16 @@ export const fetchAbout = (name: string) => call<About>(`/api/peri/about?name=${
 export type Gifts = { occasion: string | null; said: string | null; ideas: { title: string; why: string; price: string }[]; count: number };
 export const fetchGifts = (name: string) => call<Gifts>(`/api/peri/gifts?name=${encodeURIComponent(name)}`, undefined, 60000);
 
-export type AskAnswer = { reply: string; applied: { id: string; title: string; due_label: string; status: string }[] };
+export type IdeaKind = "product" | "place" | "recipe" | "activity" | "other";
+export type Idea = {
+  title: string; why: string; price: string | null; kind: IdeaKind; search: string;
+  link: string; image: string | null; source: string | null;
+};
+export type AskAnswer = { reply: string; ideas: Idea[]; applied: { id: string; title: string; due_label: string; status: string }[] };
+// Real pages and photos for ideas (web search on the Mac; can take ~20 s).
+export const findIdeaPages = (ideas: Idea[]) =>
+  call<{ link: string; image: string | null; source: string | null }[]>("/api/peri/ideas",
+    json("POST", { ideas: ideas.map(({ title, kind, search }) => ({ title, kind, search })) }), 60000);
 // ideasFor: a promise id, so Peri can recommend things for it (recipes, places, gifts…).
 export const askPeri = (message: string, history: { role: "user" | "peri"; text: string }[], ideasFor?: string) =>
   call<AskAnswer>("/api/peri/ask", json("POST", { message, history, ideas_for: ideasFor }), 60000);
