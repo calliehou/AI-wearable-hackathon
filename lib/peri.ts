@@ -153,17 +153,28 @@ export async function setMembership(person: string, circle: string, member: bool
   return f;
 }
 
-// ---- payment usernames (Venmo / Cash App / PayPal), entered once per person in the app
+// ---- how to pay each person on Venmo: a username, phone number or email. Typed once in the
+// app, or heard in conversation by the listener ("my Venmo is…"), which marks it "heard".
 
-export type Payee = { venmo?: string; cashapp?: string; paypal?: string; method?: "venmo" | "cashapp" | "paypal" };
+export type Payee = {
+  venmo?: string; cashapp?: string; paypal?: string; method?: "venmo" | "cashapp" | "paypal";
+  venmoSource?: "you" | "heard"; venmoKind?: "username" | "phone" | "email"; venmoHeard?: string;
+};
 export const readPayees = () => readJson<Record<string, Payee>>(PAYEES, {});
 
 export async function setPayee(person: string, change: Payee) {
   const all = await readPayees();
   const id = personId(person);
-  const clean = (v?: string) => v?.trim().replace(/^[@$]/, "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 40) || undefined;
+  // Usernames, phone numbers (+ and digits) and emails (with @) all survive.
+  const clean = (v?: string) => v?.trim().replace(/^[@$]/, "").replace(/[^A-Za-z0-9_.+@-]/g, "").slice(0, 80) || undefined;
   const next: Payee = { ...all[id] };
   for (const k of ["venmo", "cashapp", "paypal"] as const) if (change[k] !== undefined) next[k] = clean(change[k]);
+  if (change.venmo !== undefined) {
+    // Typed or confirmed in the app: it's yours now, and the listener won't replace it.
+    next.venmoSource = "you";
+    next.venmoKind = change.venmoKind;
+    delete next.venmoHeard;
+  }
   if (change.method) next.method = change.method;
   all[id] = next;
   await writeJson(PAYEES, all);

@@ -122,8 +122,23 @@ def finish(started_at, ended_at, turns, source, tracker=None, prints=None, loude
                 log("Learned more of %s's voice (%.2f match)." % (p["name"], chk["score"]))
         for pr in store.save_promises(item, reading.get("promises", [])):
             log("New promise: %s (to %s)" % (pr["title"], pr["person_name"] or "someone: name them in the app"))
+        save_payments(item, reading.get("payments", []))
         names = ", ".join(p["name"] or "Speaker %d" % (p["speaker"] + 1) for p in item["people"])
         log("Saved: %s  [%s]" % (item["title"], names))
+
+
+def save_payments(item, payments):
+    """Venmo details said out loud: fill in that person's Venmo page (unless one was typed)."""
+    names = {p["speaker"]: p for p in item["people"]}
+    for pay in payments:
+        if pay["confidence"] < 0.6 or not pay["handle"].strip():
+            continue
+        who = names.get(pay["speaker"]) if pay["speaker"] is not None else None
+        name = pay["name"] or (who or {}).get("name")
+        if not name or name.lower() == config.WEARER.lower() or (who or {}).get("is_wearer"):
+            continue                                       # unknown person, or the wearer's own
+        if store.save_payee(name, pay["handle"].strip(), pay["kind"], pay["quote"]):
+            log("Heard %s's Venmo (%s): %s" % (name, pay["kind"], pay["handle"]))
 
 
 def quick_save(lines):
@@ -200,9 +215,11 @@ class Recorder:
         self.tracker = voices.VoiceTracker(log)  # a new stream: voices are matched afresh
         self.ears = diarize.DiarizedSpeech().start(lambda text, final: log("  " + text) if final else None)
         self.done_upto = 0
+        self.last_audio = time.monotonic()       # the watchdog's clock: when sound last arrived
         self.band.on("audio", self.on_audio)
 
     def on_audio(self, packet):
+        self.last_audio = time.monotonic()
         self.ears.feed(packet)
         # Decode without the packet counter so lost packets are not filled in: the sound then
         # keeps the same clock as the packets Deepgram received.
@@ -332,6 +349,28 @@ def connect(transport):
     return Band.connect(config.BAND, transport, **options)
 
 
+AUDIO_STALL = 20     # the band sends 50 sound packets a second, even in silence: 20 s of none = a dropped link
+
+
+SPEECH_STALL = 20    # Deepgram answers every few seconds, even in silence: 20 s of nothing = a dead link
+
+
+class BandSilent(Exception):
+    """The band is 'connected' but has stopped sending sound."""
+
+
+def hang_up(band):
+    """Disconnect without getting stuck: a dropped Bluetooth link may never answer."""
+    def go():
+        try:
+            band.disconnect()
+        except Exception:
+            pass
+    t = threading.Thread(target=go, daemon=True)
+    t.start()
+    t.join(timeout=5)
+
+
 def run_always(transport, source, gap, longest, stop_after=None):
     log("Loading the voice model (recognises who is speaking; runs on this computer)...")
     voiceprints.load_model()
@@ -373,12 +412,23 @@ def run_always(transport, source, gap, longest, stop_after=None):
                         log("Paused from the Peri app: the band's microphone is off.")
                     else:
                         band.configure(audio=True, events=True)
+                        rec.last_audio = time.monotonic()
                         log("Listening again.")
                 if paused:
                     rec.live(connected=True)
                     continue
+                # The band streams sound all the time, even in silence. If none arrives, its
+                # Bluetooth link has dropped without saying so: hang up and connect again.
+                if transport != "sim" and time.monotonic() - rec.last_audio > AUDIO_STALL:
+                    raise BandSilent()
                 if rec.ears.closed:                          # Deepgram hung up: open a new stream
                     log("The speech service disconnected; reconnecting (nothing said so far is lost).")
+                    rec.close()
+                    rec.open()
+                elif time.monotonic() - rec.ears.heard_from > SPEECH_STALL:
+                    # Sound goes out but nothing comes back (e.g. the network changed under it):
+                    # the connection is dead without having said so. Open a fresh one.
+                    log("No answer from the speech service for %d s; reconnecting it (the band stays connected)." % SPEECH_STALL)
                     rec.close()
                     rec.open()
                 rec.check(tapped.is_set())
@@ -389,6 +439,12 @@ def run_always(transport, source, gap, longest, stop_after=None):
             log("The band disconnected. Reconnecting...")
             rec.close()
             rec.live(connected=False)
+        except BandSilent:
+            log("No sound from the band for %d s: its connection dropped. Saving and reconnecting "
+                "(if it isn't found, double-tap the band and keep it close)..." % AUDIO_STALL)
+            rec.close()
+            rec.live(connected=False)
+            hang_up(band)
         except KeyboardInterrupt:
             log("Stopping: saving the last conversation...")
             rec.close()
@@ -406,9 +462,9 @@ def run_always(transport, source, gap, longest, stop_after=None):
             log("Problem: %s. Restarting in 5 s." % getattr(error, "message", error))
             try:
                 rec.close()
-                band.disconnect()
             except Exception:
                 pass
+            hang_up(band)
             time.sleep(5)
 
 

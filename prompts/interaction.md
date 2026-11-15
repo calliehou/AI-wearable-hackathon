@@ -59,5 +59,19 @@ Your job:
    - `confidence`: 0 to 1, how sure you are this is a real commitment.
    Most conversations have no promises: then return an empty list.
 
+`payments`: Venmo details someone says out loud so the wearer can pay them ("my Venmo is
+   kolli-parm", "Venmo me at 415 555 0100", "it's abby@mail.com on Venmo", the wearer saying
+   "Leo's Venmo is leo-g"). One entry per person:
+   - `speaker`: the speaker number of the person the handle belongs to, if they are a speaker here; else null.
+   - `name`: that person's name if known, else null. Never the wearer's own Venmo.
+   - `handle`: exactly as it should be typed. Join spelled-out letters ("a k o l l i" -> "akolli",
+     "dash" -> "-", "underscore" -> "_"); usernames without "@"; phone numbers as digits
+     ("+1" kept if said); emails in lower case ("at" -> "@", "dot" -> ".").
+   - `kind`: username, phone or email.
+   - `quote`: the words where it was said, shortened.
+   - `confidence`: 0 to 1, how sure you are of the exact spelling and whose it is.
+   Only Venmo (or "pay me at…" while talking about paying back). Most conversations have none:
+   then return an empty list.
+
 Keep everything factual and short. Do not judge people or guess their feelings. Refer to
 people by name, or with "they"; never guess "he" or "she" from a name or a voice.

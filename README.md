@@ -39,9 +39,12 @@ Built at VexoHacks (Y Combinator, San Francisco), November 2026.
   as a gentle nudge, never as guilt.
 - **Hold the mic.** No band? Hold the mic button and say (or type) a promise; Peri sorts it.
 - **Ask Peri.** Suggestions and a chat that knows what you've talked about with each person.
+  It always offers options: 2-4 ideas as cards (why each fits, a rough price), each with a real
+  page and photo found by web search. "Get ideas from Peri" on a promise opens it straight away.
 - **Keep it.** Gift ideas from what someone has mentioned, a spoken recap (ElevenLabs), and
-  money promises open Venmo with the amount and note filled in. You approve the payment in Venmo;
-  Peri never moves money on its own.
+  money promises open Venmo with the amount and note filled in. Find the person by Venmo
+  username, phone number or email; if someone says theirs out loud ("my Venmo is..."), Peri
+  fills it in for you to check. You approve the payment in Venmo; Peri never moves money on its own.
 - **Voices that learn.** Voiceprints remember who is speaking once you name them.
 
 ### Screens (phone app, `mobile/src/app/`)
@@ -54,7 +57,7 @@ Built at VexoHacks (Y Combinator, San Francisco), November 2026.
 | Person | `person/[id].tsx` | Stats, recaps, open and kept promises, circles, orbit choice, rename |
 | Promise | `promise/[id].tsx` | One promise: edit who / what / when, get ideas from Peri |
 | Hold mic | `mic.tsx` | Speak or type a promise; Peri sorts it into one or more promises |
-| Ask Peri | `ask.tsx` | Suggestions and chat |
+| Ask Peri | `ask.tsx` | Suggestions and chat; ideas as cards with links and photos |
 | Circles | `circles.tsx` | Family, Friends, Work, School, plus your own; pastel colors |
 | Gift ideas | `gifts/[id].tsx` | Ideas based on what the person mentioned |
 | Places | `places/[id].tsx` | Places you and someone were, as mentioned in conversation (the band has no GPS) |
@@ -226,10 +229,11 @@ All routes are under `http://<server>:3000/api`. The phone app's client is
 | `/peri/people/rename`, `/peri/people/orbit` | Rename a person, choose their ring |
 | `/peri/circles`, `/peri/circles/members` | Create and recolor circles, add people to them |
 | `/peri/about` | The "About" memory card and "Places together" for a person |
-| `/peri/ask` | Ask Peri suggestions and chat |
+| `/peri/ask` | Ask Peri suggestions and chat (answers include structured ideas) |
+| `/peri/ideas` | Real pages and preview photos for Ask Peri's ideas (Claude web search) |
 | `/peri/gifts` | Gift ideas for a person |
 | `/peri/recap`, `/peri/recap/audio/[file]` | Short recap of a person, optionally spoken |
-| `/peri/payee` | Save a person's payment username (Venmo) |
+| `/peri/payee` | Save how to pay a person on Venmo: username, phone number or email |
 | `/peri/band` | Band status and the pause toggle |
 | `/peri/voices` | Name a voice the band heard |
 | `POST /voice-todo` | Hold-mic: recording or typed text in, promises out |
@@ -256,6 +260,7 @@ All routes are under `http://<server>:3000/api`. The phone app's client is
 | `No ANTHROPIC_API_KEY` from the listener | Put the key in `.env` in the repo root (not `.env.local`) |
 | Listener can't import `vexo_open` | Clone `vexo-open-kit` into the repo root (step 4) |
 | Bluetooth errors on start | The listener keeps retrying; double-tap the band and allow Bluetooth for your terminal |
+| Live page stops showing new words | The listener notices by itself: no sound from the band for 20 s reconnects the band, no answer from Deepgram for 20 s reopens it. Check its terminal |
 | `npm run dev` says port 3000 is in use | Another server is running; stop it, since the app expects port 3000 |
 
 ## Limitations

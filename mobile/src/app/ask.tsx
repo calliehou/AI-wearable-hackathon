@@ -8,11 +8,12 @@ import { BottomNav, NAV_SPACE } from "../components/BottomNav";
 import { Icon, typeIcon } from "../components/Icon";
 import { Avatar, T } from "../components/ui";
 import { useConfirmDelete } from "../components/Confirm";
-import { askPeri } from "../data/api";
+import { IdeaCards, PromiseHeader } from "../components/IdeaCards";
+import { askPeri, findIdeaPages, type Idea } from "../data/api";
 import { useStore } from "../data/store";
 import { colors, fonts, TYPE_TONE } from "../theme";
 
-type Msg = { role: "user" | "peri"; text: string };
+type Msg = { role: "user" | "peri"; text: string; ideas?: Idea[]; finding?: boolean };
 const REC_TONE: Record<string, string> = { drift: "#CDEBFB", due: "#FBDDD9" };
 
 export default function Ask() {
@@ -29,6 +30,7 @@ export default function Ask() {
   const todayIso = new Date().toDateString();
   const todays = s.todos.filter((t) => t.status === "open" && new Date(t.heardIso).toDateString() === todayIso).slice(0, 5);
   const recs = s.recs.filter((r) => !hidden.has(r.title));
+  const ideasTodo = ideas ? s.todo(ideas) : undefined;
 
   useEffect(() => { scroll.current?.scrollToEnd({ animated: true }); }, [msgs.length, busy]);
 
@@ -48,13 +50,22 @@ export default function Ask() {
     const message = (text ?? draft).trim();
     if (!message || busy) return;
     setDraft("");
-    const history = msgs;
+    // Peri sees its earlier options by name, so "the second one" makes sense.
+    const history = msgs.map((m) => ({ role: m.role, text: m.ideas?.length ? `${m.text} Options: ${m.ideas.map((x, i) => `${i + 1}. ${x.title}`).join("; ")}.` : m.text }));
     setMsgs([...history, { role: "user", text: message }]);
     setBusy(true);
     try {
       const a = await askPeri(message, history, ideas);
-      setMsgs((m) => [...m, { role: "peri", text: a.reply }]);
+      const options = a.ideas ?? [];
+      const reply: Msg = { role: "peri", text: a.reply, ideas: options, finding: options.length > 0 };
+      setMsgs((m) => [...m, reply]);
       if (a.applied.length) s.refresh();
+      if (options.length) {
+        // Then fill in real pages and photos (search links work until they arrive).
+        const done = (found: Awaited<ReturnType<typeof findIdeaPages>> | null) => setMsgs((m) => m.map((x) => (x === reply
+          ? { ...x, finding: false, ideas: found ? options.map((d, j) => ({ ...d, ...(found[j] ?? {}) })) : options } : x)));
+        findIdeaPages(options).then(done).catch(() => done(null));
+      }
     } catch (e) {
       setMsgs((m) => [...m, { role: "peri", text: `Sorry, I couldn't answer that. ${(e as Error).message}` }]);
     } finally {
@@ -121,13 +132,17 @@ export default function Ask() {
               <T w="semibold" style={{ fontSize: 14, lineHeight: 20 }}>Hi! Ask me about your people and promises, or tell me what to change. Try “What do I owe this week?”</T>
             </View>
           )}
+          {ideasTodo && <PromiseHeader todo={ideasTodo} />}
           {msgs.map((m, i) => (
-            <View key={i} style={{
+            <View key={i} style={{ gap: 10 }}>
+            <View style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", borderRadius: 22, padding: 14,
               backgroundColor: m.role === "user" ? colors.ink : colors.card,
               ...(m.role === "user" ? { borderTopRightRadius: 6 } : { borderTopLeftRadius: 6 }),
             }}>
               <T w="semibold" style={{ fontSize: 14, lineHeight: 20, color: m.role === "user" ? colors.white : colors.ink }}>{m.text}</T>
+            </View>
+            {m.ideas?.length ? <IdeaCards ideas={m.ideas} finding={!!m.finding} /> : null}
             </View>
           ))}
           {busy && <ActivityIndicator style={{ alignSelf: "flex-start", marginLeft: 12 }} color={colors.ink} />}
