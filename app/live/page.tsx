@@ -86,8 +86,11 @@ export default function LivePage() {
     bottom.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "end" });
   }, [turnCount, interimText]);
 
-  const stale = !live?.updated_at || now - live.updated_at > 5;
-  const status = stale
+  const loading = live === null;            // first answer not in yet: don't claim the listener is down
+  const stale = !loading && (!live?.updated_at || now - live.updated_at > 5);
+  const status = loading
+    ? { label: "Checking the band…", colour: "var(--muted)" }
+    : stale
     ? { label: "Listener not running", colour: "var(--muted)" }
     : live!.recording
       ? { label: "Recording", colour: "#d9534f" }
@@ -110,7 +113,7 @@ export default function LivePage() {
       <div className="mt-2 flex items-center gap-2 text-sm" role="status" aria-live="polite">
         <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: status.colour }} aria-hidden />
         <span>{status.label}</span>
-        {!stale && <span className="text-muted">· band {live?.band}</span>}
+        {!stale && !loading && <span className="text-muted">· band {live?.band}</span>}
       </div>
 
       {speakers.length > 0 && (
@@ -192,7 +195,7 @@ export default function LivePage() {
           </div>
         )}
 
-        {!stale && !live?.turns.length && !live?.interim && (
+        {!stale && !loading && !live?.turns.length && !live?.interim && (
           <p className="text-muted">
             Listening… Words appear here as people speak. After {live?.silence_gap ?? 60} s of silence the conversation
             is saved and a new one starts.
@@ -201,7 +204,7 @@ export default function LivePage() {
         {stale && (
           <p className="text-muted">
             Start the band listener to see the conversation here:{" "}
-            <code className="text-sm">.venv/bin/python listener/listen.py</code>
+            <code className="text-sm">listener/run.sh</code> (it restarts itself if it crashes)
           </p>
         )}
         <div ref={bottom} />
